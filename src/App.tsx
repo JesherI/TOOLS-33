@@ -1,7 +1,12 @@
+import { LoadingScreen } from "./screens";
+
 function App() {
-  return (
-    <div className="w-screen h-screen bg-black" />
-  );
+  const handleLoadingComplete = () => {
+    // Aquí puedes cambiar a otra pantalla
+    console.log("Loading complete!");
+  };
+
+  return <LoadingScreen onComplete={handleLoadingComplete} />;
 }
 
 export default App;
