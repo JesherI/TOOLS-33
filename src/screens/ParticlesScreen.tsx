@@ -1,9 +1,13 @@
 import { ParticleCanvas } from "../components/particles";
 import { WindowControls } from "../components/window";
+import { Sidebar } from "../components/sidebar";
 
-export function HomeScreen() {
+export function ParticlesScreen() {
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden">
+      {/* Sidebar */}
+      <Sidebar />
+
       {/* Window Controls - Top right */}
       <div
         className="absolute top-4 right-4 z-50"
@@ -12,7 +16,7 @@ export function HomeScreen() {
         <WindowControls />
       </div>
 
-      {/* Particles Background Only */}
+      {/* Particles Background */}
       <ParticleCanvas
         config={{
           connectionDistance: 120,
