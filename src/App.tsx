@@ -1,10 +1,16 @@
-import { LoadingScreen } from "./screens";
+import { useState } from "react";
+import { LoadingScreen, ParticlesScreen } from "./screens";
 
 function App() {
+  const [showParticles, setShowParticles] = useState(false);
+
   const handleLoadingComplete = () => {
-    // Aquí puedes cambiar a otra pantalla
-    console.log("Loading complete!");
+    setShowParticles(true);
   };
+
+  if (showParticles) {
+    return <ParticlesScreen />;
+  }
 
   return <LoadingScreen onComplete={handleLoadingComplete} />;
 }

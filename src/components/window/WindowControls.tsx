@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import { useCallback } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 interface WindowControlsProps {
   className?: string;
@@ -7,33 +7,17 @@ interface WindowControlsProps {
 
 export function WindowControls({ className = "" }: WindowControlsProps) {
   const appWindow = getCurrentWindow();
-  const [isMinimized, setIsMinimized] = useState(false);
 
+  // Botón amarillo - Minimizar a la barra de tareas
   const handleMinimize = useCallback(async () => {
     try {
-      if (isMinimized) {
-        // Restaurar al tamaño completo
-        await appWindow.setSize(new LogicalSize(1200, 800));
-        await appWindow.center();
-        setIsMinimized(false);
-      } else {
-        // Obtener el monitor actual para calcular la mitad del tamaño
-        const monitor = await appWindow.currentMonitor();
-        if (monitor) {
-          const { size } = monitor;
-          const newWidth = size.width / 2;
-          const newHeight = size.height / 2;
-          
-          await appWindow.setSize(new LogicalSize(newWidth, newHeight));
-          await appWindow.center();
-        }
-        setIsMinimized(true);
-      }
+      await appWindow.minimize();
     } catch (error) {
-      console.error("Error al cambiar tamaño de ventana:", error);
+      console.error("Error al minimizar:", error);
     }
-  }, [appWindow, isMinimized]);
+  }, [appWindow]);
 
+  // Botón verde - Maximizar/Restaurar
   const handleMaximize = useCallback(async () => {
     try {
       const isMaximized = await appWindow.isMaximized();
@@ -43,21 +27,22 @@ export function WindowControls({ className = "" }: WindowControlsProps) {
         await appWindow.maximize();
       }
     } catch (error) {
-      console.error("Error al maximizar ventana:", error);
+      console.error("Error al maximizar:", error);
     }
   }, [appWindow]);
 
+  // Botón rojo - Cerrar
   const handleClose = useCallback(async () => {
     try {
       await appWindow.close();
     } catch (error) {
-      console.error("Error al cerrar ventana:", error);
+      console.error("Error al cerrar:", error);
     }
   }, [appWindow]);
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      {/* Close button - Red */}
+      {/* Botón Cerrar - Rojo */}
       <button
         onClick={handleClose}
         className="w-3 h-3 rounded-full bg-[#ff5f57] hover:brightness-110 transition-all duration-150 flex items-center justify-center group"
@@ -74,11 +59,11 @@ export function WindowControls({ className = "" }: WindowControlsProps) {
         </svg>
       </button>
 
-      {/* Minimize button - Yellow */}
+      {/* Botón Minimizar - Amarillo */}
       <button
         onClick={handleMinimize}
         className="w-3 h-3 rounded-full bg-[#febc2e] hover:brightness-110 transition-all duration-150 flex items-center justify-center group"
-        aria-label={isMinimized ? "Restaurar" : "Minimizar"}
+        aria-label="Minimizar"
       >
         <svg
           className="w-2.5 h-2.5 text-black opacity-0 group-hover:opacity-100 transition-opacity duration-150"
@@ -91,7 +76,7 @@ export function WindowControls({ className = "" }: WindowControlsProps) {
         </svg>
       </button>
 
-      {/* Maximize button - Green */}
+      {/* Botón Maximizar - Verde */}
       <button
         onClick={handleMaximize}
         className="w-3 h-3 rounded-full bg-[#28c840] hover:brightness-110 transition-all duration-150 flex items-center justify-center group"
