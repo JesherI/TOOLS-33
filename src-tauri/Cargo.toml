@@ -30,4 +30,6 @@ lopdf = { version = "0.35", features = ["embed_image", "nom_parser"] }
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
 deflate = "1"
 flate2 = "1"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 

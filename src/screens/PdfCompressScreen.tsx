@@ -1,12 +1,9 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { ParticleCanvas } from "../components/particles";
 import { WindowControls } from "../components/window";
 import { Sidebar } from "../components/sidebar";
 import {
   compressPDFWithRust,
-  checkCompressionAvailable,
-  installGhostscript,
-  debugGhostscript,
   formatFileSize,
   CompressionLevel
 } from "../utils";
@@ -33,17 +30,7 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>("medium");
   const [isDragging, setIsDragging] = useState(false);
-  const [hasGhostscript, setHasGhostscript] = useState<boolean | null>(null);
-  const [isInstallingGs, setIsInstallingGs] = useState(false);
-  const [installError, setInstallError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
-  const [showDebug, setShowDebug] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Verificar si Ghostscript está instalado
-  useEffect(() => {
-    checkCompressionAvailable().then(setHasGhostscript);
-  }, []);
 
   // Manejar archivos seleccionados
   const handleFiles = useCallback((selectedFiles: FileList | null) => {
@@ -95,7 +82,7 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
     });
   };
 
-  // Comprimir archivos con Rust puro
+  // Comprimir archivos
   const handleCompress = async () => {
     setPhase("compressing");
     
@@ -110,37 +97,25 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
       ));
 
       try {
-        // Guardar archivo temporal en directorio temp de Tauri
+        // Guardar archivo temporal
         const arrayBuffer = await fileItem.file.arrayBuffer();
         const tempInput = `input_${fileItem.id}.pdf`;
         const tempOutput = `output_${fileItem.id}.pdf`;
         
-        console.log(`Guardando archivo temporal: ${tempInput}`);
-        
         await writeFile(tempInput, new Uint8Array(arrayBuffer), {
           baseDir: BaseDirectory.Temp,
         });
-        
-        console.log(`Archivo temporal guardado, iniciando compresión...`);
 
         setFiles(prev => prev.map(f => 
           f.id === fileItem.id ? { ...f, progress: 30 } : f
         ));
 
-        // Comprimir con Rust puro (lopdf)
-        console.log(`Llamando a compressPDFWithRust con:`, {
-          input: tempInput,
-          output: tempOutput,
-          level: compressionLevel
-        });
-        
+        // Comprimir con Ghostscript
         const result = await compressPDFWithRust(
           tempInput,
           tempOutput,
           compressionLevel
         );
-        
-        console.log(`Resultado de compresión:`, result);
 
         setFiles(prev => prev.map(f => 
           f.id === fileItem.id ? { ...f, progress: 80 } : f
@@ -152,7 +127,7 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
             baseDir: BaseDirectory.Temp,
           });
 
-          // Descargar con nombre descriptivo incluyendo nivel de compresión
+          // Descargar con nombre descriptivo
           const blob = new Blob([compressedData], { type: "application/pdf" });
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
@@ -191,24 +166,12 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
           throw new Error(result.error || "Error en compresión");
         }
       } catch (error) {
-        console.error(`=== ERROR EN ARCHIVO ${fileItem.name} ===`);
-        console.error('Tipo:', typeof error);
-        console.error('Error completo:', error);
+        console.error(`Error en archivo ${fileItem.name}:`, error);
         
         let errorMsg = "Error al procesar archivo";
-        
         if (error instanceof Error) {
-          errorMsg = `${error.name}: ${error.message}`;
-          if ((error as any).stack) {
-            console.error('Stack:', (error as any).stack);
-          }
-        } else if (typeof error === 'string') {
-          errorMsg = error;
-        } else if (error && typeof error === 'object') {
-          errorMsg = JSON.stringify(error);
+          errorMsg = error.message;
         }
-        
-        console.error('Mensaje final:', errorMsg);
         
         setFiles(prev => prev.map(f => 
           f.id === fileItem.id ? { 
@@ -298,10 +261,10 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
                 className="hidden"
               />
 
-              {/* Badge de Rust */}
+              {/* Badge de Ghostscript */}
               <div className="absolute top-4 right-4">
-                <span className="px-3 py-1 bg-orange-500/20 border border-orange-500/30 rounded-full text-xs text-orange-400 font-mono">
-                  Powered by Rust (lopdf)
+                <span className="px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-full text-xs text-green-400 font-mono">
+                  Powered by Ghostscript
                 </span>
               </div>
 
@@ -329,7 +292,7 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
                 o haz clic para seleccionar archivos
               </p>
               <p className="text-sm text-gray-500">
-                Compresión pura Rust - Sin dependencias externas
+                Compresión avanzada con Ghostscript
               </p>
             </div>
           ) : (
@@ -342,7 +305,7 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
                     Archivos ({files.length})
                   </h2>
                   <p className="text-xs text-gray-500 mt-1">
-                    Compresión pura Rust con lopdf
+                    Compresión con Ghostscript
                   </p>
                 </div>
                 {!isCompressing && (
@@ -358,7 +321,7 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
                 )}
               </div>
 
-              {/* Lista de archivos con scroll estilizado */}
+              {/* Lista de archivos */}
               <div className="space-y-2 mb-8 max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-orange-500/30 scrollbar-track-transparent hover:scrollbar-thumb-orange-500/50">
                 {files.map((file) => (
                   <div
@@ -403,18 +366,11 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
                             </>
                           )}
                           {file.status === "error" && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
-                                <circle cx="12" cy="12" r="10"/>
-                                <line x1="12" y1="8" x2="12" y2="12"/>
-                                <line x1="12" y1="16" x2="12.01" y2="16"/>
-                              </svg>
-                              <p className="text-xs text-red-400" title={file.errorMessage}>
-                                {file.errorMessage && file.errorMessage.length > 40 
-                                  ? file.errorMessage.substring(0, 40) + "..." 
-                                  : file.errorMessage}
-                              </p>
-                            </div>
+                            <p className="text-xs text-red-400" title={file.errorMessage}>
+                              {file.errorMessage && file.errorMessage.length > 40 
+                                ? file.errorMessage.substring(0, 40) + "..." 
+                                : file.errorMessage}
+                            </p>
                           )}
                         </div>
                         {/* Barra de progreso */}
@@ -454,7 +410,7 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
               {!isCompressing && !allCompressed && (
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-400 mb-3">
-                    Nivel de compresión (lopdf)
+                    Nivel de compresión
                   </label>
                   <div className="grid grid-cols-3 gap-3">
                     {(["light", "medium", "high"] as CompressionLevel[]).map(
@@ -504,196 +460,6 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
                   <p className="mt-3 text-sm text-gray-400">
                     {getCompressionDescription(compressionLevel)}
                   </p>
-                  
-                  {/* Advertencia si no hay Ghostscript */}
-                  {hasGhostscript === false && !isInstallingGs && (
-                    <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
-                      <div className="flex items-start gap-3">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2">
-                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                          <line x1="12" y1="9" x2="12" y2="13"/>
-                          <line x1="12" y1="17" x2="12.01" y2="17"/>
-                        </svg>
-                        <div className="flex-1">
-                          <p className="text-sm text-yellow-400 font-medium">
-                            Ghostscript no está instalado
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            La compresión será básica (solo metadatos). 
-                            Para compresión avanzada de imágenes, instala Ghostscript.
-                          </p>
-                          
-                          {/* Botón de descarga manual - Opción recomendada */}
-                          <div className="mt-3 flex flex-col gap-2">
-                            <a
-                              href="https://www.ghostscript.com/download/gsdnld.html"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-black text-xs font-semibold rounded-lg transition-colors"
-                            >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="7 10 12 15 17 10"/>
-                                <line x1="12" y1="15" x2="12" y2="3"/>
-                              </svg>
-                              Descargar Ghostscript (recomendado)
-                            </a>
-                            
-                            <div className="relative">
-                              <button
-                                onClick={async () => {
-                                  setIsInstallingGs(true);
-                                  setInstallError(null);
-                                  try {
-                                    console.log("[Ghostscript] Iniciando instalación automática...");
-                                    const success = await installGhostscript();
-                                    console.log("[Ghostscript] Resultado:", success);
-                                    if (success) {
-                                      const available = await checkCompressionAvailable();
-                                      setHasGhostscript(available);
-                                      if (!available) {
-                                        setInstallError("Ghostscript se instaló pero necesita reiniciar TOOLS 33 para ser detectado.");
-                                      }
-                                    } else {
-                                      setInstallError("La instalación no se completó. Intenta instalar manualmente.");
-                                    }
-                                  } catch (error) {
-                                    console.error("[Ghostscript] Error:", error);
-                                    const errorMsg = error instanceof Error ? error.message : String(error);
-                                    setInstallError(errorMsg);
-                                  } finally {
-                                    setIsInstallingGs(false);
-                                  }
-                                }}
-                                disabled={isInstallingGs}
-                                className="w-full px-4 py-2 border border-orange-500/50 text-orange-400 hover:bg-orange-500/10 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-                              >
-                                {isInstallingGs ? (
-                                  <>
-                                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                    </svg>
-                                    Instalación en progreso...
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                                      <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-                                      <line x1="12" y1="22.08" x2="12" y2="12"/>
-                                    </svg>
-                                    Instalación automática
-                                  </>
-                                )}
-                              </button>
-                              <p className="mt-1 text-[10px] text-gray-500 text-center">
-                                Se abrirá una ventana de PowerShell
-                              </p>
-                            </div>
-                          </div>
-                          
-                          {installError && (
-                            <p className="mt-2 text-xs text-red-400 flex items-start gap-1">
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mt-0.5 flex-shrink-0">
-                                <circle cx="12" cy="12" r="10"/>
-                                <line x1="12" y1="8" x2="12" y2="12"/>
-                                <line x1="12" y1="16" x2="12.01" y2="16"/>
-                              </svg>
-                              <span>{installError}</span>
-                            </p>
-                          )}
-                          
-                          <p className="mt-3 text-xs text-gray-500">
-                            <span className="text-blue-400">Nota:</span> La instalación automática requiere ejecutar TOOLS 33 como administrador. 
-                            La instalación manual es más confiable.
-                          </p>
-                          
-                          {/* Botón de diagnóstico */}
-                          <button
-                            onClick={async () => {
-                              const debug = await debugGhostscript();
-                              setDebugInfo(debug);
-                              setShowDebug(true);
-                            }}
-                            className="mt-3 text-xs text-gray-500 hover:text-orange-400 underline"
-                          >
-                            Diagnosticar problema de detección
-                          </button>
-                          
-                          {/* Mostrar información de debug */}
-                          {showDebug && debugInfo && (
-                            <div className="mt-3 p-3 bg-black/50 rounded-lg text-xs font-mono">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className={debugInfo.found ? "text-green-400" : "text-red-400"}>
-                                  {debugInfo.found ? "✓ Encontrado" : "✗ No encontrado"}
-                                </span>
-                                <button 
-                                  onClick={() => setShowDebug(false)}
-                                  className="text-gray-500 hover:text-gray-300"
-                                >
-                                  Cerrar
-                                </button>
-                              </div>
-                              {debugInfo.found_path && (
-                                <p className="text-green-400 mb-2">{debugInfo.found_path}</p>
-                              )}
-                              <div className="space-y-1 max-h-40 overflow-y-auto">
-                                {debugInfo.checked_paths?.map((item: any, i: number) => (
-                                  <div key={i} className="flex gap-2">
-                                    <span className={item.result.includes("✓") ? "text-green-400" : "text-red-400"}>
-                                      {item.result.includes("✓") ? "✓" : "✗"}
-                                    </span>
-                                    <span className="text-gray-400 truncate" title={item.path}>
-                                      {item.path}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                              {debugInfo.dynamic_dirs_found?.length > 0 && (
-                                <div className="mt-2 pt-2 border-t border-white/10">
-                                  <p className="text-gray-500">Versiones encontradas en C:\Program Files\gs:</p>
-                                  {debugInfo.dynamic_dirs_found.map((dir: string, i: number) => (
-                                    <p key={i} className="text-blue-400">{dir}</p>
-                                  ))}
-                                </div>
-                              )}
-                              <p className="mt-2 text-orange-400">{debugInfo.recommendation}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Estado de instalación en progreso */}
-                  {isInstallingGs && (
-                    <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
-                      <div className="flex items-center gap-3">
-                        <svg className="animate-spin w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        <div>
-                          <p className="text-sm text-blue-400 font-medium">
-                            Instalando Ghostscript...
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            Esto puede tardar unos minutos. Por favor espera.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {hasGhostscript === true && (
-                    <p className="mt-3 text-xs text-green-400 flex items-center gap-1">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M20 6L9 17l-5-5"/>
-                      </svg>
-                      Ghostscript detectado - Compresión máxima disponible
-                    </p>
-                  )}
                 </div>
               )}
 
@@ -710,7 +476,7 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      Comprimiendo con Rust...
+                      Comprimiendo con Ghostscript...
                     </>
                   ) : (
                     <>

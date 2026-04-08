@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CpuIcon } from "../icons";
+import { checkAndPromptUpdate } from "../../utils/updater";
 
 interface SidebarProps {
   className?: string;
@@ -117,6 +118,41 @@ export function Sidebar({
             </svg>
             {isExpanded && (
               <span className="text-sm font-medium whitespace-nowrap">PDF Compress</span>
+            )}
+          </button>
+        </div>
+
+        {/* Bottom Section */}
+        <div className="absolute bottom-4 left-2 right-2">
+          {/* Divider */}
+          <div className="mx-2 mb-2 h-px bg-white/10" />
+          
+          {/* Update Check */}
+          <button
+            onClick={() => checkAndPromptUpdate()}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group text-gray-500 hover:text-gray-300 hover:bg-white/5 ${
+              isExpanded ? "justify-start" : "justify-center"
+            }`}
+            title="Buscar actualizaciones"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="shrink-0"
+            >
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+              <path d="M16 21h5v-5" />
+            </svg>
+            {isExpanded && (
+              <span className="text-xs font-medium whitespace-nowrap">Buscar actualizaciones</span>
             )}
           </button>
         </div>
