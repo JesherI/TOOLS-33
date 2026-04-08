@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ParticleCanvas } from "../components/particles";
 import { CpuIcon } from "../components/icons";
 import { ProgressBar } from "../components/progress";
@@ -17,10 +18,16 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
     interval: 50,
   });
 
-  // Llamar onComplete cuando termine
-  if (isComplete && onComplete) {
-    onComplete();
-  }
+  // Llamar onComplete cuando termine (usando useEffect para evitar error de React)
+  useEffect(() => {
+    if (isComplete && onComplete) {
+      // Pequeña pausa para que se vea el 100%
+      const timer = setTimeout(() => {
+        onComplete();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isComplete, onComplete]);
 
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden">

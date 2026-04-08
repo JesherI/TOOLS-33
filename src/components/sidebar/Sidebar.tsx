@@ -3,11 +3,22 @@ import { CpuIcon } from "../icons";
 
 interface SidebarProps {
   className?: string;
+  currentScreen?: "home" | "pdf-compress";
+  onNavigate?: (screen: "home" | "pdf-compress") => void;
 }
 
-export function Sidebar({ className = "" }: SidebarProps) {
+export function Sidebar({ 
+  className = "", 
+  currentScreen = "home",
+  onNavigate 
+}: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activeItem, setActiveItem] = useState("home");
+  const [activeItem, setActiveItem] = useState(currentScreen);
+
+  const handleNavigation = (screen: "home" | "pdf-compress") => {
+    setActiveItem(screen);
+    onNavigate?.(screen);
+  };
 
   return (
     <div
@@ -46,7 +57,7 @@ export function Sidebar({ className = "" }: SidebarProps) {
         <div className="p-2 space-y-1">
           {/* Home */}
           <button
-            onClick={() => setActiveItem("home")}
+            onClick={() => handleNavigation("home")}
             className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${
               activeItem === "home"
                 ? "text-orange-400"
@@ -77,14 +88,14 @@ export function Sidebar({ className = "" }: SidebarProps) {
 
           {/* PDF Compress */}
           <button
-            onClick={() => setActiveItem("pdf")}
+            onClick={() => handleNavigation("pdf-compress")}
             className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${
-              activeItem === "pdf"
+              activeItem === "pdf-compress"
                 ? "text-orange-400"
                 : "text-gray-400 hover:text-gray-200"
             } ${isExpanded ? "justify-start" : "justify-center"}`}
             style={{
-              background: activeItem === "pdf" ? "rgba(249, 115, 22, 0.15)" : "transparent",
+              background: activeItem === "pdf-compress" ? "rgba(249, 115, 22, 0.15)" : "transparent",
             }}
           >
             <svg

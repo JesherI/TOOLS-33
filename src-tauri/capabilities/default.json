@@ -17,6 +17,19 @@
     "core:window:allow-available-monitors",
     "core:window:allow-primary-monitor",
     "core:window:allow-outer-position",
-    "core:window:allow-current-monitor"
+    "core:window:allow-current-monitor",
+    "fs:default",
+    "fs:allow-read-file",
+    "fs:allow-write-file",
+    "fs:allow-read-dir",
+    "fs:allow-mkdir",
+    "fs:allow-remove",
+    "fs:allow-temp-write",
+    "fs:allow-temp-read",
+    "fs:scope-temp",
+    "fs:scope-temp-recursive",
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save"
   ]
 }

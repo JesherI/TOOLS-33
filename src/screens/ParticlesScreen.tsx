@@ -2,11 +2,18 @@ import { ParticleCanvas } from "../components/particles";
 import { WindowControls } from "../components/window";
 import { Sidebar } from "../components/sidebar";
 
-export function ParticlesScreen() {
+interface ParticlesScreenProps {
+  onNavigate?: (screen: "home" | "pdf-compress") => void;
+}
+
+export function ParticlesScreen({ onNavigate }: ParticlesScreenProps) {
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden">
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar 
+        currentScreen="home"
+        onNavigate={onNavigate}
+      />
 
       {/* Window Controls - Top right */}
       <div

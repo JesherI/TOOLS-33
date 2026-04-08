@@ -1,18 +1,29 @@
 import { useState } from "react";
-import { LoadingScreen, ParticlesScreen } from "./screens";
+import { LoadingScreen, ParticlesScreen, PdfCompressScreen } from "./screens";
+
+type Screen = "loading" | "home" | "pdf-compress";
 
 function App() {
-  const [showParticles, setShowParticles] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState<Screen>("loading");
 
   const handleLoadingComplete = () => {
-    setShowParticles(true);
+    setCurrentScreen("home");
   };
 
-  if (showParticles) {
-    return <ParticlesScreen />;
-  }
+  const handleNavigate = (screen: "home" | "pdf-compress") => {
+    setCurrentScreen(screen);
+  };
 
-  return <LoadingScreen onComplete={handleLoadingComplete} />;
+  switch (currentScreen) {
+    case "loading":
+      return <LoadingScreen onComplete={handleLoadingComplete} />;
+    case "home":
+      return <ParticlesScreen onNavigate={handleNavigate} />;
+    case "pdf-compress":
+      return <PdfCompressScreen onNavigate={handleNavigate} />;
+    default:
+      return <LoadingScreen onComplete={handleLoadingComplete} />;
+  }
 }
 
 export default App;
