@@ -145,3 +145,24 @@ target/
 # ===== GHOTSCRIPT TEMP =====
 scripts/*.log
 *.log
+
+# ===== LATEST.JSON =====
+latest.json
+
+# ===== SECRETS =====
+secret.key
+public.pub
+ICONS_FIX.md
+UPDATER_SETUP.md
+
+# ===== ICONS =====
+src-tauri/icons/
+
+# ===== SCRIPTS =====
+scripts/
+
+# ===== DIST =====
+dist/
+
+# ===== BUILD =====
+build/

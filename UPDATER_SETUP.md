@@ -2,6 +2,15 @@
 
 Este documento explica cómo configurar las actualizaciones automáticas para TOOLS 33 usando GitHub Releases.
 
+**Repositorio:** https://github.com/JesherI/TOOLS-33
+
+## 🚀 Publicar Actualización (Rápido)
+
+```powershell
+# Todo en uno: compila, genera JSON y sube a GitHub
+.\scripts\publish-release.ps1
+```
+
 ## Resumen
 
 - Las actualizaciones se descargan automáticamente desde GitHub Releases
@@ -57,7 +66,7 @@ Copia el contenido de tu clave pública (archivo `.pub`) y pégalo en `tauri.con
     "updater": {
       "pubkey": "TU_CLAVE_PUBLICA_AQUI",
       "endpoints": [
-        "https://github.com/jeshe114/tools-33/releases/latest/download/latest.json"
+        "https://github.com/JesherI/TOOLS-33/releases/latest/download/latest.json"
       ]
     }
   }
@@ -94,7 +103,7 @@ pnpm tauri build
 ```
 
 Esto generará:
-- `src-tauri/target/release/bundle/nsis/tools-33_0.1.4_x64-setup.exe`
+- `src-tauri/target/release/bundle/nsis/TOOLS-33_0.1.4_x64-setup.exe`
 - Archivos `.sig` (firmas) junto a cada instalador
 
 ### 3.2 Generar latest.json
@@ -102,27 +111,55 @@ Esto generará:
 Ejecuta el script para generar el archivo de actualización:
 
 ```powershell
-.\scripts\generate-update-json.ps1 `
-  -Version "0.1.4" `
-  -RepoOwner "jeshe114" `
-  -RepoName "tools-33" `
-  -ReleaseNotes "Nueva versión con mejoras"
+# Detecta versión automáticamente desde tauri.conf.json
+.\scripts\generate-update-json.ps1
+
+# O especifica la versión manualmente
+.\scripts\generate-update-json.ps1 -Version "0.1.4" -ReleaseNotes "Nueva versión con mejoras"
+
+# Subir automáticamente a GitHub (requiere gh CLI)
+.\scripts\generate-update-json.ps1 -AutoUpload
+
+# Crear release como borrador
+.\scripts\generate-update-json.ps1 -AutoUpload -DraftRelease
 ```
 
-Esto creará `latest.json` en la carpeta actual.
+El script automáticamente:
+- ✅ Detecta la versión desde `tauri.conf.json`
+- ✅ Busca los archivos de instalación en `src-tauri/target/release/bundle/`
+- ✅ Extrae la firma del archivo `.sig`
+- ✅ Genera `latest.json` con todas las URLs correctas
 
 ### 3.3 Subir a GitHub Releases
 
-1. Ve a tu repositorio en GitHub
+#### Opción Automática (Recomendada)
+
+Si usaste `-AutoUpload` en el paso anterior, ¡los archivos ya están subidos! 
+
+#### Opción Manual
+
+1. Ve a tu repositorio en GitHub: https://github.com/JesherI/TOOLS-33/releases
 2. Clic en "Releases" → "Draft a new release"
 3. Crea un tag: `v0.1.4`
 4. Título: `v0.1.4`
 5. Descripción: Notas de la versión
 6. **Adjunta los archivos:**
-   - `tools-33_0.1.4_x64-setup.exe`
-   - `tools-33_0.1.4_x64-setup.exe.sig` (firma del archivo)
+   - `TOOLS-33_0.1.4_x64-setup.exe`
+   - `TOOLS-33_0.1.4_x64-setup.exe.sig` (firma del archivo)
    - `latest.json`
 7. Publica el release
+
+#### Opción GitHub CLI
+
+```powershell
+# El script te dará el comando exacto, o usa:
+gh release create v0.1.4 `
+  "src-tauri/target/release/bundle/nsis/TOOLS-33_0.1.4_x64-setup.exe" `
+  "src-tauri/target/release/bundle/nsis/TOOLS-33_0.1.4_x64-setup.exe.sig" `
+  "latest.json" `
+  --title "v0.1.4" `
+  --notes "Descripción de la versión"
+```
 
 ---
 
@@ -132,11 +169,9 @@ Asegúrate de que `tauri.conf.json` tenga la URL correcta de tu repositorio:
 
 ```json
 "endpoints": [
-  "https://github.com/jeshe114/tools-33/releases/latest/download/latest.json"
+  "https://github.com/JesherI/TOOLS-33/releases/latest/download/latest.json"
 ]
 ```
-
-Cambia `jeshe114` y `tools-33` por tu usuario y nombre de repositorio.
 
 ---
 
@@ -156,29 +191,49 @@ Cambia `jeshe114` y `tools-33` por tu usuario y nombre de repositorio.
 
 ## Flujo de Trabajo para Nuevas Versiones
 
-Cada vez que quieras lanzar una actualización:
+Cada vez que quieras lanzar una actualización, tienes dos opciones:
+
+### Opción A: Script Completo (Recomendado) 🚀
+
+Un solo comando que hace todo: compila, genera el JSON y sube a GitHub:
+
+```powershell
+# Publicar automáticamente (detecta versión de tauri.conf.json)
+.\scripts\publish-release.ps1
+
+# Especificar versión manualmente
+.\scripts\publish-release.ps1 -Version "0.1.6"
+
+# Con notas de release
+.\scripts\publish-release.ps1 -ReleaseNotes "Nuevas características y mejoras"
+
+# Crear como borrador (para revisar antes de publicar)
+.\scripts\publish-release.ps1 -Draft
+
+# Omitir build (si ya compilaste)
+.\scripts\publish-release.ps1 -SkipBuild
+```
+
+### Opción B: Pasos Manuales
 
 1. **Actualiza la versión** en:
-   - `package.json`
    - `src-tauri/tauri.conf.json`
-   - `src-tauri/Cargo.toml`
 
 2. **Compila:**
    ```bash
    pnpm tauri build
    ```
 
-3. **Genera latest.json:**
+3. **Genera latest.json y sube automáticamente:**
    ```powershell
-   .\scripts\generate-update-json.ps1 -Version "0.1.5" -RepoOwner "jeshe114" -RepoName "tools-33"
+   # Detecta versión automáticamente y sube a GitHub
+   .\scripts\generate-update-json.ps1 -AutoUpload
+   
+   # O con opciones específicas
+   .\scripts\generate-update-json.ps1 -Version "0.1.6" -ReleaseNotes "Nuevas mejoras" -AutoUpload
    ```
 
-4. **Crea Release en GitHub** con:
-   - Instalador `.exe`
-   - Archivo `.sig`
-   - `latest.json`
-
-5. **Listo** - Los usuarios recibirán la actualización automáticamente
+4. **Listo** - Los usuarios recibirán la actualización automáticamente
 
 ---
 

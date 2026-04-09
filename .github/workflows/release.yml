@@ -1,0 +1,62 @@
+﻿name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-latest"
+            args: "--target x86_64-apple-darwin"
+          - platform: "macos-latest"
+            args: "--target aarch64-apple-darwin"
+          - platform: "windows-latest"
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Get private key
+        run: echo "$TAURI_SIGNING_PRIVATE_KEY" > private-key.pem
+        shell: bash
+        env:
+          Tauri_signing_private_key: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
+      - name: Build tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "TOOLS-33 v__VERSION__"
+          releaseBody: "See the assets to download this version and install."
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+env:
+  NODE_VERSION: 20
