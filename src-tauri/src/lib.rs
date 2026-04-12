@@ -4,6 +4,8 @@ use pdf_compress_pure::compress_pdf_rust;
 use tauri_plugin_updater::UpdaterExt;
 use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
 use std::process::Command;
+use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 // Windows-specific imports for hiding console windows
 #[cfg(target_os = "windows")]
@@ -14,6 +16,7 @@ use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 /// Clean ANSI escape codes from text output
+#[allow(dead_code)]
 fn clean_ansi_codes(text: &str) -> String {
     // Remove ANSI escape sequences (e.g., [1G, [18A, [40C, etc.)
     // This regex matches escape sequences that start with ESC[ or just [
@@ -58,7 +61,7 @@ fn clean_ansi_codes(text: &str) -> String {
     result.trim().to_string()
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 struct SystemInfo {
     os_name: String,
     os_version: String,
@@ -78,6 +81,39 @@ struct SystemInfo {
     disk_percent: u8,
     uptime: String,
 }
+
+// Estructura para cachear información estática del sistema
+struct SystemCache {
+    static_info: Option<StaticSystemInfo>,
+    last_update: u64,
+}
+
+#[derive(Clone)]
+#[allow(dead_code)]
+struct StaticSystemInfo {
+    os_name: String,
+    os_version: String,
+    cpu: String,
+    cpu_cores: usize,
+    cpu_threads: usize,
+    cpu_freq: String,
+    #[allow(dead_code)]
+    ram_gb: String,
+    gpu: String,
+    gpu_memory: String,
+    hostname: String,
+    architecture: String,
+    #[allow(dead_code)]
+    disk_total: String,
+}
+
+// Cache global thread-safe (válida por 60 segundos)
+static SYSTEM_CACHE: Mutex<SystemCache> = Mutex::new(SystemCache {
+    static_info: None,
+    last_update: 0,
+});
+
+const CACHE_TTL_SECONDS: u64 = 60;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -184,17 +220,66 @@ async fn auto_check_update(app_handle: &tauri::AppHandle) -> anyhow::Result<()> 
 
 #[tauri::command]
 fn get_system_info() -> SystemInfo {
-    // Inicializar sistema con sysinfo
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    
+    // Obtener información dinámica (siempre actualizada)
     let mut sys = System::new_with_specifics(
         RefreshKind::new()
-            .with_cpu(CpuRefreshKind::everything())
+            .with_cpu(CpuRefreshKind::new())
             .with_memory(MemoryRefreshKind::everything())
     );
+    sys.refresh_memory();
     
-    // Refrescar información
-    sys.refresh_all();
-    std::thread::sleep(std::time::Duration::from_millis(200));
-    sys.refresh_all();
+    // Información de RAM (dinámica)
+    let total_ram = sys.total_memory();
+    let used_ram = sys.used_memory();
+    let ram_gb = format!("{:.0} GB", total_ram as f64 / 1024.0);
+    let ram_used = format!("{:.0} GB", used_ram as f64 / 1024.0);
+    let ram_percent = if total_ram > 0 {
+        ((used_ram as f64 / total_ram as f64) * 100.0) as u8
+    } else {
+        0
+    };
+    
+    // Información de disco (dinámica)
+    let (disk_total, disk_used, disk_percent) = get_disk_info_fast();
+    
+    // Uptime (dinámico)
+    let uptime = System::uptime();
+    let uptime_str = format_uptime(uptime);
+    
+    // Verificar caché de información estática
+    let cache = SYSTEM_CACHE.lock().unwrap();
+    
+    if cache.static_info.is_some() && (now - cache.last_update) < CACHE_TTL_SECONDS {
+        // Usar caché
+        let static_info = cache.static_info.as_ref().unwrap();
+        return SystemInfo {
+            os_name: static_info.os_name.clone(),
+            os_version: static_info.os_version.clone(),
+            cpu: static_info.cpu.clone(),
+            cpu_cores: static_info.cpu_cores,
+            cpu_threads: static_info.cpu_threads,
+            cpu_freq: static_info.cpu_freq.clone(),
+            ram_gb,
+            ram_used,
+            ram_percent,
+            gpu: static_info.gpu.clone(),
+            gpu_memory: static_info.gpu_memory.clone(),
+            hostname: static_info.hostname.clone(),
+            architecture: static_info.architecture.clone(),
+            disk_total,
+            disk_used,
+            disk_percent,
+            uptime: uptime_str,
+        };
+    }
+    
+    // Obtener información estática (solo cuando expira la caché)
+    drop(cache); // Liberar el lock mientras hacemos operaciones lentas
     
     // Información básica del sistema
     let os_name = System::name().unwrap_or_else(|| "Unknown".to_string());
@@ -202,7 +287,8 @@ fn get_system_info() -> SystemInfo {
     let hostname = System::host_name().unwrap_or_else(|| "Unknown".to_string());
     let architecture = std::env::consts::ARCH.to_string();
     
-    // Información de CPU
+    // Información de CPU (refrescar una sola vez)
+    sys.refresh_cpu();
     let cpu = sys.cpus().first()
         .map(|cpu| cpu.brand().to_string())
         .unwrap_or_else(|| "Unknown CPU".to_string());
@@ -214,26 +300,28 @@ fn get_system_info() -> SystemInfo {
         .map(|cpu| format!("{:.2} GHz", cpu.frequency() as f64 / 1000.0))
         .unwrap_or_else(|| "Unknown".to_string());
     
-    // Información de RAM
-    let total_ram = sys.total_memory();
-    let used_ram = sys.used_memory();
-    let ram_gb = format!("{:.1} GB", total_ram as f64 / 1024.0);
-    let ram_used = format!("{:.1} GB", used_ram as f64 / 1024.0);
-    let ram_percent = if total_ram > 0 {
-        ((used_ram as f64 / total_ram as f64) * 100.0) as u8
-    } else {
-        0
+    // Información de GPU (obtener una sola vez)
+    let (gpu, gpu_memory) = get_gpu_info_fast();
+    
+    // Guardar en caché
+    let static_info = StaticSystemInfo {
+        os_name: os_name.clone(),
+        os_version: os_version.clone(),
+        cpu: cpu.clone(),
+        cpu_cores,
+        cpu_threads,
+        cpu_freq: cpu_freq.clone(),
+        ram_gb: ram_gb.clone(),
+        gpu: gpu.clone(),
+        gpu_memory: gpu_memory.clone(),
+        hostname: hostname.clone(),
+        architecture: architecture.clone(),
+        disk_total: disk_total.clone(),
     };
     
-    // Información de GPU (fallback a wmic si está disponible)
-    let (gpu, gpu_memory) = get_gpu_info();
-    
-    // Información de disco
-    let (disk_total, disk_used, disk_percent) = get_disk_info();
-    
-    // Uptime
-    let uptime = System::uptime();
-    let uptime_str = format_uptime(uptime);
+    let mut cache = SYSTEM_CACHE.lock().unwrap();
+    cache.static_info = Some(static_info);
+    cache.last_update = now;
     
     SystemInfo {
         os_name,
@@ -256,6 +344,7 @@ fn get_system_info() -> SystemInfo {
     }
 }
 
+#[allow(dead_code)]
 fn get_gpu_info() -> (String, String) {
     // Intentar obtener GPU usando PowerShell (más confiable en Windows 11)
     // -NoProfile: Evita cargar el perfil del usuario (que puede tener neofetch u otros scripts)
@@ -312,6 +401,7 @@ fn get_gpu_info() -> (String, String) {
 }
 
 /// Selecciona la mejor GPU de la lista (prioriza dedicadas sobre integradas)
+#[allow(dead_code)]
 fn select_best_gpu(gpus: Vec<(String, u64)>) -> Option<(String, u64)> {
     if gpus.is_empty() {
         return None;
@@ -355,6 +445,7 @@ fn select_best_gpu(gpus: Vec<(String, u64)>) -> Option<(String, u64)> {
 }
 
 /// Formatea los bytes de memoria GPU a string legible
+#[allow(dead_code)]
 fn format_gpu_memory(bytes: u64) -> String {
     if bytes > 0 {
         if bytes > 1024 * 1024 * 1024 {
@@ -367,6 +458,7 @@ fn format_gpu_memory(bytes: u64) -> String {
     }
 }
 
+#[allow(dead_code)]
 fn get_gpu_info_wmic() -> (String, String) {
     // Fallback usando wmic - obtiene todas las GPUs
     let mut cmd = Command::new("wmic");
@@ -419,6 +511,7 @@ fn get_gpu_info_wmic() -> (String, String) {
     }
 }
 
+#[allow(dead_code)]
 fn get_disk_info() -> (String, String, u8) {
     // Usar PowerShell para obtener información del disco del sistema (donde está Windows)
     // -NoProfile: Evita cargar el perfil del usuario
@@ -479,6 +572,7 @@ fn get_disk_info() -> (String, String, u8) {
     }
 }
 
+#[allow(dead_code)]
 fn get_disk_info_wmic() -> (String, String, u8) {
     // Fallback usando PowerShell para obtener el disco del sistema primero, luego wmic
     let sys_drive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".to_string());
@@ -546,6 +640,7 @@ fn get_disk_info_wmic() -> (String, String, u8) {
     }
 }
 
+#[allow(dead_code)]
 fn get_disk_info_ps_fallback() -> (String, String, u8) {
     // Último recurso: obtener información de disco usando Get-Volume (más moderno)
     let ps_cmd = r#"$PSStyle.OutputRendering = 'PlainText'; $vol = Get-Volume -DriveLetter $env:SystemDrive[0]; if ($vol -and $vol.Size) { "$($vol.Size),$($vol.SizeRemaining)" } else { "" }"#;
@@ -585,6 +680,85 @@ fn get_disk_info_ps_fallback() -> (String, String, u8) {
             eprintln!("Error in PS fallback: {:?}", e);
             ("Unknown".to_string(), "Unknown".to_string(), 0)
         }
+    }
+}
+
+// Versión optimizada para obtener info de GPU (sin fallbacks múltiples)
+fn get_gpu_info_fast() -> (String, String) {
+    // Comando simplificado para obtener solo la GPU principal
+    let ps_cmd = r#"Get-CimInstance Win32_VideoController | Select-Object -First 1 Name, AdapterRAM | ForEach-Object { "$($_.Name)|$($_.AdapterRAM)" }"#;
+
+    let mut cmd = Command::new("powershell");
+    cmd.args(&["-NoProfile", "-Command", ps_cmd]);
+
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    match cmd.output() {
+        Ok(output) => {
+            let text = String::from_utf8_lossy(&output.stdout);
+            if let Some(line) = text.lines().next() {
+                let parts: Vec<&str> = line.split('|').collect();
+                if parts.len() >= 2 {
+                    let name = parts[0]
+                        .replace("(R)", "")
+                        .replace("(TM)", "")
+                        .replace("  ", " ")
+                        .trim()
+                        .to_string();
+                    
+                    let memory_bytes = parts[1].trim().parse::<u64>().unwrap_or(0);
+                    let memory = if memory_bytes > 1024 * 1024 * 1024 {
+                        format!("{:.1} GB", memory_bytes as f64 / 1024.0 / 1024.0 / 1024.0)
+                    } else if memory_bytes > 0 {
+                        format!("{:.0} MB", memory_bytes as f64 / 1024.0 / 1024.0)
+                    } else {
+                        "Shared Memory".to_string()
+                    };
+                    
+                    return (name, memory);
+                }
+            }
+            ("Graphics Adapter".to_string(), "Unknown".to_string())
+        }
+        Err(_) => ("Graphics Adapter".to_string(), "Unknown".to_string()),
+    }
+}
+
+// Versión optimizada para obtener info de disco (sin múltiples fallbacks)
+fn get_disk_info_fast() -> (String, String, u8) {
+    let ps_cmd = r#"$d = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$env:SystemDrive'" | Select-Object Size, FreeSpace; "$($d.Size),$($d.FreeSpace)""#;
+
+    let mut cmd = Command::new("powershell");
+    cmd.args(&["-NoProfile", "-Command", ps_cmd]);
+
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    match cmd.output() {
+        Ok(output) => {
+            let text = String::from_utf8_lossy(&output.stdout);
+            let parts: Vec<&str> = text.trim().split(',').collect();
+            
+            if parts.len() >= 2 {
+                if let (Ok(total), Ok(free)) = (parts[0].trim().parse::<u64>(), parts[1].trim().parse::<u64>()) {
+                    let used = total.saturating_sub(free);
+                    let percent = if total > 0 {
+                        ((used as f64 / total as f64) * 100.0) as u8
+                    } else {
+                        0
+                    };
+                    
+                    return (
+                        format!("{:.0} GB", total as f64 / 1024.0 / 1024.0 / 1024.0),
+                        format!("{:.0} GB", used as f64 / 1024.0 / 1024.0 / 1024.0),
+                        percent
+                    );
+                }
+            }
+            ("Unknown".to_string(), "Unknown".to_string(), 0)
+        }
+        Err(_) => ("Unknown".to_string(), "Unknown".to_string(), 0),
     }
 }
 

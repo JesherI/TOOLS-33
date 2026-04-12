@@ -1,10 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ParticleCanvas } from "../components/particles";
 import { CpuIcon } from "../components/icons";
 import { ProgressBar } from "../components/progress";
 import { CenteredLayout } from "../components/layout";
 import { WindowControls } from "../components/window";
+import { UpdateDialog } from "../components/update";
 import { useProgress } from "../hooks";
+import { checkForUpdate, UpdateInfo } from "../utils/updater";
 
 interface LoadingScreenProps {
   onComplete?: () => void;
@@ -18,16 +20,44 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
     interval: 50,
   });
 
-  // Llamar onComplete cuando termine (usando useEffect para evitar error de React)
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [loadingComplete, setLoadingComplete] = useState(false);
+
   useEffect(() => {
-    if (isComplete && onComplete) {
-      // Pequeña pausa para que se vea el 100%
+    const checkUpdate = async () => {
+      setCheckingUpdate(true);
+      try {
+        const info = await checkForUpdate();
+        setUpdateInfo(info);
+      } catch (error) {
+        console.error("Error checking for updates:", error);
+      } finally {
+        setCheckingUpdate(false);
+      }
+    };
+
+    checkUpdate();
+  }, []);
+
+  useEffect(() => {
+    if (isComplete) {
+      setLoadingComplete(true);
       const timer = setTimeout(() => {
-        onComplete();
+        if (!updateInfo?.available) {
+          onComplete?.();
+        }
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isComplete, onComplete]);
+  }, [isComplete, onComplete, updateInfo?.available]);
+
+  const handleUpdateClose = () => {
+    setUpdateInfo(null);
+    onComplete?.();
+  };
+
+  const showUpdateDialog = loadingComplete && updateInfo?.available;
 
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden">
@@ -76,7 +106,27 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
           fillColor="bg-orange-500"
           showPercentage={true}
         />
+
+        {/* Checking for updates indicator */}
+        {checkingUpdate && (
+          <div className="mt-6 flex items-center gap-2 text-xs text-gray-500">
+            <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <span>Buscando actualizaciones...</span>
+          </div>
+        )}
       </CenteredLayout>
+
+      {/* Update Dialog */}
+      {showUpdateDialog && updateInfo && (
+        <UpdateDialog
+          version={updateInfo.version || ""}
+          releaseNotes={updateInfo.body}
+          onClose={handleUpdateClose}
+        />
+      )}
     </div>
   );
 }

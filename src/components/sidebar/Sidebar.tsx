@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CpuIcon } from "../icons";
-import { checkAndPromptUpdate } from "../../utils/updater";
+import { downloadAndInstall } from "../../utils/updater";
 
 interface SidebarProps {
   className?: string;
@@ -129,7 +129,7 @@ export function Sidebar({
           
           {/* Update Check */}
           <button
-            onClick={() => checkAndPromptUpdate()}
+            onClick={() => downloadAndInstall()}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group text-gray-500 hover:text-gray-300 hover:bg-white/5 ${
               isExpanded ? "justify-start" : "justify-center"
             }`}

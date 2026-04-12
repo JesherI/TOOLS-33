@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ParticleCanvas } from "../components/particles";
 import { WindowControls } from "../components/window";
@@ -32,25 +32,41 @@ export function ParticlesScreen({ onNavigate }: ParticlesScreenProps) {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const isFetchingRef = useRef(false);
 
-  const fetchSystemInfo = useCallback(async () => {
+  const fetchSystemInfo = useCallback(async (showLoading = false) => {
+    // Evitar llamadas solapadas
+    if (isFetchingRef.current) return;
+    
+    isFetchingRef.current = true;
+    if (showLoading) setIsUpdating(true);
+    
     try {
       const info = await invoke<SystemInfo>("get_system_info");
       setSystemInfo(info);
+      setLastUpdate(new Date());
       setLoading(false);
     } catch (error) {
       console.error("Error obteniendo info del sistema:", error);
       setLoading(false);
+    } finally {
+      isFetchingRef.current = false;
+      setIsUpdating(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchSystemInfo();
+    // Carga inicial
+    fetchSystemInfo(true);
     
-    // Actualizar cada 3 segundos
-    const interval = setInterval(fetchSystemInfo, 3000);
+    // Actualizar cada 1 minuto (60000ms)
+    const interval = setInterval(() => {
+      fetchSystemInfo(false);
+    }, 60000);
     
-    // Actualizar reloj
+    // Actualizar reloj cada segundo
     const clockInterval = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
@@ -60,6 +76,15 @@ export function ParticlesScreen({ onNavigate }: ParticlesScreenProps) {
       clearInterval(clockInterval);
     };
   }, [fetchSystemInfo]);
+
+  // Formatear tiempo transcurrido desde última actualización
+  const getTimeSinceLastUpdate = () => {
+    if (!lastUpdate) return "";
+    const seconds = Math.floor((new Date().getTime() - lastUpdate.getTime()) / 1000);
+    if (seconds < 60) return `hace ${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    return `hace ${minutes}min`;
+  };
 
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden">
@@ -89,7 +114,7 @@ export function ParticlesScreen({ onNavigate }: ParticlesScreenProps) {
             connection: "rgba(249, 115, 22,",
           },
         }}
-        density={15000}
+        density={8000}
       />
 
       {/* Grid Background Effect */}
@@ -260,9 +285,15 @@ export function ParticlesScreen({ onNavigate }: ParticlesScreenProps) {
               <div className="flex items-center gap-4">
                 <StatusIndicator label="SYSTEM" status="online" />
                 <StatusIndicator label="MONITOR" status="active" />
+                {isUpdating && (
+                  <span className="text-orange-400/60 animate-pulse">● SYNCING...</span>
+                )}
               </div>
-              <div className="text-orange-400/40">
-                TOOLS-33 v0.1.6 // SYSINFO MODULE ACTIVE
+              <div className="text-orange-400/40 flex items-center gap-2">
+                <span>TOOLS-33 v0.1.6</span>
+                {lastUpdate && (
+                  <span className="text-orange-400/30">| {getTimeSinceLastUpdate()}</span>
+                )}
               </div>
             </div>
           </div>
