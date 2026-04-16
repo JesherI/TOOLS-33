@@ -8,7 +8,7 @@ interface WindowControlsProps {
 export function WindowControls({ className = "" }: WindowControlsProps) {
   const appWindow = getCurrentWindow();
 
-  // Botón amarillo - Minimizar a la barra de tareas
+  // Botón Minimizar
   const handleMinimize = useCallback(async () => {
     try {
       await appWindow.minimize();
@@ -17,7 +17,7 @@ export function WindowControls({ className = "" }: WindowControlsProps) {
     }
   }, [appWindow]);
 
-  // Botón verde - Maximizar/Restaurar
+  // Botón Maximizar
   const handleMaximize = useCallback(async () => {
     try {
       const isMaximized = await appWindow.isMaximized();
@@ -31,7 +31,7 @@ export function WindowControls({ className = "" }: WindowControlsProps) {
     }
   }, [appWindow]);
 
-  // Botón rojo - Cerrar
+  // Botón Cerrar
   const handleClose = useCallback(async () => {
     try {
       await appWindow.close();
@@ -42,54 +42,54 @@ export function WindowControls({ className = "" }: WindowControlsProps) {
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      {/* Botón Cerrar - Rojo */}
-      <button
-        onClick={handleClose}
-        className="w-3 h-3 rounded-full bg-[#ff5f57] hover:brightness-110 transition-all duration-150 flex items-center justify-center group"
-        aria-label="Cerrar"
-      >
-        <svg
-          className="w-2.5 h-2.5 text-black opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-        >
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
-      </button>
-
-      {/* Botón Minimizar - Amarillo */}
+      {/* Botón Minimizar */}
       <button
         onClick={handleMinimize}
-        className="w-3 h-3 rounded-full bg-[#febc2e] hover:brightness-110 transition-all duration-150 flex items-center justify-center group"
+        className="w-5 h-5 rounded-md bg-black border border-[#f97316] text-[#f97316] hover:bg-[#f97316] hover:text-black hover:shadow-[0_0_8px_#f97316] transition-all duration-150 flex items-center justify-center"
         aria-label="Minimizar"
       >
         <svg
-          className="w-2.5 h-2.5 text-black opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+          className="w-3 h-3"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="3"
+          strokeWidth="2.5"
         >
           <path d="M5 12h14" />
         </svg>
       </button>
 
-      {/* Botón Maximizar - Verde */}
+      {/* Botón Maximizar */}
       <button
         onClick={handleMaximize}
-        className="w-3 h-3 rounded-full bg-[#28c840] hover:brightness-110 transition-all duration-150 flex items-center justify-center group"
+        className="w-5 h-5 rounded-md bg-black border border-[#f97316] text-[#f97316] hover:bg-[#f97316] hover:text-black hover:shadow-[0_0_8px_#f97316] transition-all duration-150 flex items-center justify-center"
         aria-label="Maximizar"
       >
         <svg
-          className="w-2.5 h-2.5 text-black opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+          className="w-3 h-3"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="3"
+          strokeWidth="2.5"
         >
-          <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+          <rect x="4" y="4" width="16" height="16" rx="1" />
+        </svg>
+      </button>
+
+      {/* Botón Cerrar */}
+      <button
+        onClick={handleClose}
+        className="w-5 h-5 rounded-md bg-black border border-[#f97316] text-[#f97316] hover:bg-[#f97316] hover:text-black hover:shadow-[0_0_8px_#f97316] transition-all duration-150 flex items-center justify-center"
+        aria-label="Cerrar"
+      >
+        <svg
+          className="w-3 h-3"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+        >
+          <path d="M18 6L6 18M6 6l12 12" />
         </svg>
       </button>
     </div>

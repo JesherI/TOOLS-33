@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "tools-33",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "identifier": "com.jeshe.tools-33",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -30,7 +30,7 @@
     "updater": {
       "pubkey": "PFJTQUtleVZhbHVlPjxNb2R1bHVzPjg3eXAzK1E3c3V4ZFpnNWNhckxJMG5STnAzNkhtdUM3T3RUWkdTSVo3VXhHMS9PYlNYVjdLYXk4SmlWWjFFdHpBazhEUFRzb3RjQnlDNk1TbFZWQ1pQampXRVRacXNDM3libyt1RTNMMTFndExWbHNpbm5nNUY4ZCtqeEtWYS95bGtVVGJpamJNd1c4WnZkTm1qK2M4dlhVTkVLVzVJWGIxcHFTVm1yNm01TU1sY1JmWWc4SU5rRldRR1N6YWx2QkNyRXZEZk9WYlJOeWdhZXBQZ1FsQisrbDVpZFR4WHNaNVdsOFNEcTNRcGM4ait6VjJVblhycGtUQVgxc3lqTzg1RmFhK3RNZEZvYVNCMTRXYkJBZHBSOE9FL3FQbS9zWExRcWhMSmZ4UGdBaXV2WHpVVzN5Rm5SVHlXaUMxcjIxOEFmYnV2TXpBaGZEVFYvQnFSOTNIUT09PC9Nb2R1bHVzPjxFeHBvbmVudD5BUUFCPC9FeHBvbmVudD48L1JTQUtleVZhbHVlPg==",
       "endpoints": [
-        "https://github.com/JesherI/TOOLS-33/releases/download/v__VERSION__/latest.json"
+        "https://raw.githubusercontent.com/JesherI/TOOLS-33/main/latest.json"
       ],
       "windows": {
         "installMode": "passive"

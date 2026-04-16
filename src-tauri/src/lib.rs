@@ -233,11 +233,11 @@ fn get_system_info() -> SystemInfo {
     );
     sys.refresh_memory();
     
-    // Información de RAM (dinámica)
+    // Información de RAM (dinámica) - sysinfo devuelve bytes, convertimos a GB
     let total_ram = sys.total_memory();
     let used_ram = sys.used_memory();
-    let ram_gb = format!("{:.0} GB", total_ram as f64 / 1024.0);
-    let ram_used = format!("{:.0} GB", used_ram as f64 / 1024.0);
+    let ram_gb = format!("{:.0} GB", (total_ram as f64) / 1024.0 / 1024.0 / 1024.0);
+    let ram_used = format!("{:.0} GB", (used_ram as f64) / 1024.0 / 1024.0 / 1024.0);
     let ram_percent = if total_ram > 0 {
         ((used_ram as f64 / total_ram as f64) * 100.0) as u8
     } else {
