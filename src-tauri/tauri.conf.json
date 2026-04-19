@@ -28,7 +28,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFFMEMyQ0VGODgwQTYzREIKUldUYll3cUk3eXdNcnF0YVFDWmhvNURHNDBKUFpUZU1ybzZLMkRHbXNFK0Jtc3F5cm1Md3N4ZU4K",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJBQjQyNURCQkNBNTIyNEIKUldSTElxVzgyeVcwdWs2dmRhYk1mWUFLNTJ3NDJHSkJrbTlIUVBxN2ZwbHZjc2o1aXpKRUZBVFoK",
       "endpoints": [
         "https://raw.githubusercontent.com/JesherI/TOOLS-33/main/latest.json"
       ],
