@@ -72,54 +72,38 @@ jobs:
           prerelease: false
           args: ""
 
-      - name: Sign MSI and generate signature
+      - name: Upload signature to release
         run: |
-          # Buscar el MSI generado
-          $msiFile = Get-ChildItem -Path "src-tauri/target/release/bundle/msi" -Filter "*.msi" | Select-Object -First 1
-          if ($msiFile) {
-            # Firmar el MSI
-            $env:TAURI_SIGNING_PRIVATE_KEY | Out-File -FilePath "private-key.pem" -Encoding utf8 -NoNewline
-            cargo tauri signer sign -k private-key.pem $msiFile.FullName
-            
-            # Generar signature base64
-            $sigFile = $msiFile.FullName + ".sig"
-            if (Test-Path $sigFile) {
-              $signature = Get-Content $sigFile -Raw
-            } else {
-              $signature = ""
+          # Buscar archivos de firma generados por Tauri
+          $sigFiles = Get-ChildItem -Path "src-tauri/target" -Recurse -Filter "*.sig" -ErrorAction SilentlyContinue
+          if ($sigFiles) {
+            foreach ($sigFile in $sigFiles) {
+              gh release upload ${{ github.ref_name }} $sigFile.FullName --repo JesherI/TOOLS-33 --clobber
+              Write-Host "Uploaded: $($sigFile.Name)"
             }
-            
-            # Crear latest.json
-            $version = "${{ github.ref_name }}".Replace("v", "")
-            $json = @{
-              version = $version
-              platforms = @{
-                "windows-x86_64" = @{
-                  url = "https://github.com/JesherI/TOOLS-33/releases/download/v$version/tools-33_$($version)_x64_en-US.msi"
-                  signature = $signature
-                }
-              }
-              notes = "✅ Actualización automática disponible"
-              pub_date = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
-            } | ConvertTo-Json -Depth 3
-            
-            $json | Out-File -FilePath "latest.json" -Encoding utf8
-            
-            # Subir archivos de firma al release
-            gh release upload v$version $sigFile --repo JesherI/TOOLS-33 --clobber
+          }
+          
+          # Buscar y copiar latest.json si Tauri lo generó
+          $latestJson = Get-ChildItem -Path "src-tauri/target" -Recurse -Filter "latest.json" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($latestJson) {
+            Copy-Item $latestJson.FullName -Destination "latest.json" -Force
+            Write-Host "Found latest.json at: $($latestJson.FullName)"
           }
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
       - name: Commit latest.json
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f latest.json
-          git commit -m "chore: Update latest.json for ${{ github.ref_name }}" || echo "No changes"
-          git push || echo "Nothing to push"
+          if (Test-Path "latest.json") {
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -f latest.json
+            git commit -m "chore: Update latest.json for ${{ github.ref_name }}" || echo "No changes to commit"
+            git push || echo "Nothing to push"
+          } else {
+            Write-Host "latest.json not found - Tauri may not have generated it"
+          }
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
