@@ -25,31 +25,50 @@ jobs:
 
       - name: Get private key
         run: |
-          Add-Content -Path "$env:GITHUB_WORKSPACE/private-key.pem" -Value "$env:TAURI_SIGNING_PRIVATE_KEY" -NoNewline
+          $env:TAURI_SIGNING_PRIVATE_KEY | Out-File -FilePath "$env:GITHUB_WORKSPACE/private-key.pem" -Encoding utf8 -NoNewline
         shell: pwsh
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build frontend
+        run: pnpm build
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         with:
           tagName: v__VERSION__
           releaseName: "TOOLS-33 v__VERSION__"
           releaseBody: |
-            ## Nueva versión disponible
+            ## ✅ Actualización automática disponible
             
-            Esta actualización incluye mejoras de rendimiento y correcciones de errores.
+            Los usuarios con TOOLS-33 instalado recibirán esta actualización automáticamente.
             
-            ### Cómo instalar
-            1. Descarga el archivo `.exe` o `.msi` de abajo
+            ### Cambios en esta versión
+            - Mejoras en el sistema de actualizaciones automáticas
+            - Correcciones de estabilidad
+            
+            ### Instalación manual
+            1. Descarga el archivo `.msi` de abajo
             2. Ejecuta el instalador
-            3. Sigue las instrucciones en pantalla
-            
-            La aplicación se actualizará automáticamente.
-          releaseDraft: true
+            3. La aplicación se actualizará automáticamente en el futuro
+          releaseDraft: false
           prerelease: false
           args: ""
 

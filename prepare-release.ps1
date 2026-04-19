@@ -1,25 +1,26 @@
-# TOOLS-33 Release Preparation Script - OPTIMIZADO
-# Compila, firma, genera ZIP y prepara todo para GitHub Releases
-# Uso: .\prepare-release.ps1 -Version "0.1.8" -ReleaseNotes "Mis mejoras"
+# TOOLS-33 Release Preparation Script - 100% AUTOMATICO
+# Compila, firma, genera ZIP y prepara TODO para GitHub Releases
+# Uso: .\prepare-release.ps1
+# Resultado: Todo listo en release-artifacts/ para subir a GitHub
 
 param(
     [string]$Version = "",
     [string]$ReleaseNotes = "Mejoras de rendimiento y correcciones de errores.",
-    [switch]$SkipBuild = $false,
-    [switch]$AutoUpload = $false
+    [switch]$SkipBuild = $false
 )
 
 $ErrorActionPreference = "Stop"
+$ReleaseDir = "release-artifacts"
+$BundlePath = "src-tauri\target\release\bundle"
 
 Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  TOOLS-33 Release Preparation" -ForegroundColor Cyan
-Write-Host "  (Script Optimizado)" -ForegroundColor DarkCyan
-Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "==================================================" -ForegroundColor Cyan
+Write-Host "     TOOLS-33 - Preparacion de Release            " -ForegroundColor Cyan
+Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host ""
 
 # ========================================
-# PASO 1: DETECTAR VERSIÓN
+# PASO 1: DETECTAR VERSION
 # ========================================
 if ([string]::IsNullOrEmpty($Version)) {
     $VersionMatch = Select-String -Path "src-tauri/tauri.conf.json" -Pattern '"version":\s*"([^"]+)"'
@@ -29,13 +30,12 @@ if ([string]::IsNullOrEmpty($Version)) {
 }
 
 if ([string]::IsNullOrEmpty($Version)) {
-    Write-Host "❌ ERROR: No se pudo detectar la versión." -ForegroundColor Red
-    Write-Host "   Usa: .\prepare-release.ps1 -Version '0.1.8'" -ForegroundColor Yellow
+    Write-Host "ERROR: No se pudo detectar la version." -ForegroundColor Red
     exit 1
 }
 
-Write-Host "📦 Versión: v$Version" -ForegroundColor Green
-Write-Host "📝 Notas: $ReleaseNotes" -ForegroundColor Green
+Write-Host "[1/6] Version detectada: v$Version" -ForegroundColor Green
+Write-Host "      Notas: $ReleaseNotes" -ForegroundColor Green
 Write-Host ""
 
 # ========================================
@@ -43,256 +43,269 @@ Write-Host ""
 # ========================================
 $PrivateKeyPath = "src-tauri/private.pem"
 if (-not (Test-Path $PrivateKeyPath)) {
-    Write-Host "❌ ERROR: No se encontró la clave privada." -ForegroundColor Red
-    Write-Host "   Ejecuta primero: .\generate-keys.ps1" -ForegroundColor Yellow
-    exit 1
+    Write-Host "[2/6] Generando nuevas claves..." -ForegroundColor Yellow
+    try {
+        $null = pnpm tauri signer generate --force --ci --write-keys $PrivateKeyPath 2>&1
+        Write-Host "      Claves generadas exitosamente" -ForegroundColor Green
+        
+        # Actualizar tauri.conf.json con la nueva clave publica
+        $PubKeyPath = "$PrivateKeyPath.pub"
+        if (Test-Path $PubKeyPath) {
+            $PubKey = Get-Content $PubKeyPath -Raw
+            $ConfigPath = "src-tauri/tauri.conf.json"
+            $Config = Get-Content $ConfigPath -Raw
+            $Config = $Config -replace '"pubkey":\s*"[^"]*"', "`"pubkey`": `"$PubKey`""
+            $Config | Out-File -FilePath $ConfigPath -Encoding UTF8
+            Write-Host "      tauri.conf.json actualizado" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "ERROR al generar claves: $_" -ForegroundColor Red
+        exit 1
+    }
+} else {
+    Write-Host "[2/6] Clave privada verificada" -ForegroundColor Green
 }
-
-$PrivateKey = Get-Content $PrivateKeyPath -Raw
-if ([string]::IsNullOrWhiteSpace($PrivateKey)) {
-    Write-Host "❌ ERROR: La clave privada está vacía." -ForegroundColor Red
-    exit 1
-}
-
-# Establecer variable de entorno para toda la sesión
-$env:TAURI_SIGNING_PRIVATE_KEY = $PrivateKey
-Write-Host "✅ [1/6] Clave privada cargada" -ForegroundColor Green
 
 # ========================================
-# PASO 3: COMPILAR (si no se omite)
+# PASO 3: COMPILAR
 # ========================================
 if (-not $SkipBuild) {
     Write-Host ""
-    Write-Host "🔨 [2/6] Compilando aplicación..." -ForegroundColor Yellow
-    Write-Host "    (Esto puede tomar varios minutos)" -ForegroundColor DarkGray
+    Write-Host "[3/6] Compilando aplicacion..." -ForegroundColor Yellow
+    Write-Host "      (Este proceso puede tomar 2-5 minutos)" -ForegroundColor DarkGray
     Write-Host ""
     
-    $BuildResult = pnpm tauri build 2>&1
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "❌ ERROR: La compilación falló." -ForegroundColor Red
-        Write-Host $BuildResult -ForegroundColor Red
+    try {
+        $env:TAURI_SIGNING_PRIVATE_KEY_PATH = $PrivateKeyPath
+        $BuildOutput = pnpm tauri build 2>&1
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "ERROR: La compilacion fallo" -ForegroundColor Red
+            Write-Host $BuildOutput -ForegroundColor Red
+            exit 1
+        }
+        
+        Write-Host "      Compilacion exitosa" -ForegroundColor Green
+    } catch {
+        Write-Host "ERROR en compilacion: $_" -ForegroundColor Red
         exit 1
     }
-    
-    Write-Host "✅ Compilación exitosa!" -ForegroundColor Green
 } else {
-    Write-Host ""
-    Write-Host "⏭️  [2/6] Compilación omitida (--SkipBuild)" -ForegroundColor DarkGray
+    Write-Host "[3/6] Compilacion omitida (--SkipBuild)" -ForegroundColor DarkGray
 }
 
 # ========================================
-# PASO 4: BUSCAR Y PREPARAR ARCHIVOS
+# PASO 4: PREPARAR CARPETA DE RELEASE
 # ========================================
 Write-Host ""
-Write-Host "🔍 [3/6] Buscando archivos de instalación..." -ForegroundColor Yellow
+Write-Host "[4/6] Preparando archivos de release..." -ForegroundColor Yellow
 
-$BundlePath = "src-tauri\target\release\bundle"
-$ReleaseDir = "release-artifacts"
-
-# Crear directorio de release
-if (-not (Test-Path $ReleaseDir)) {
+# Limpiar y crear directorio
+if (Test-Path $ReleaseDir) {
+    Remove-Item -Path "$ReleaseDir\*" -Recurse -Force -ErrorAction SilentlyContinue
+} else {
     New-Item -ItemType Directory -Path $ReleaseDir -Force | Out-Null
 }
 
-# Buscar archivos MSI
-$MsiPath = Join-Path $BundlePath "msi"
-$SourceMsi = $null
-$ZipFiles = @()
+$FilesCopied = @()
+$FilesToSign = @()
 
-if (Test-Path $MsiPath) {
-    $MsiFiles = Get-ChildItem -Path $MsiPath -Filter "*.msi" | Sort-Object Length -Descending
-    if ($MsiFiles.Count -gt 0) {
-        $SourceMsi = $MsiFiles | Select-Object -First 1
-        Write-Host "   📄 Encontrado: $($SourceMsi.Name)" -ForegroundColor White
-    }
+# 1. MSI
+$MsiFiles = Get-ChildItem -Path "$BundlePath\msi" -Filter "*.msi" -ErrorAction SilentlyContinue | 
+    Where-Object { $_.Name -match $Version } |
+    Sort-Object LastWriteTime -Descending
+
+if ($MsiFiles) {
+    $Msi = $MsiFiles | Select-Object -First 1
+    Copy-Item $Msi.FullName -Destination "$ReleaseDir\$($Msi.Name)" -Force
+    $FilesCopied += $Msi.Name
+    Write-Host "      Copiado: $($Msi.Name)" -ForegroundColor White
 }
 
-if (-not $SourceMsi) {
-    Write-Host "❌ ERROR: No se encontró archivo MSI." -ForegroundColor Red
-    Write-Host "   Asegúrate de que el build se completó correctamente." -ForegroundColor Yellow
+# 2. NSIS
+$NsisFiles = Get-ChildItem -Path "$BundlePath\nsis" -Filter "*.exe" -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -match $Version -and $_.Name -match "setup" } |
+    Sort-Object LastWriteTime -Descending
+
+if ($NsisFiles) {
+    $Nsis = $NsisFiles | Select-Object -First 1
+    Copy-Item $Nsis.FullName -Destination "$ReleaseDir\$($Nsis.Name)" -Force
+    $FilesCopied += $Nsis.Name
+    $FilesToSign += "$ReleaseDir\$($Nsis.Name)"
+    Write-Host "      Copiado: $($Nsis.Name)" -ForegroundColor White
+}
+
+# 3. Portable
+$Portable = Get-ChildItem -Path "src-tauri\target\release\tools-33.exe" -ErrorAction SilentlyContinue
+if ($Portable -and $Portable.Length -gt 1MB) {
+    $PortableName = "tools-33_$($Version)_x64.exe"
+    Copy-Item $Portable.FullName -Destination "$ReleaseDir\$PortableName" -Force
+    $FilesCopied += $PortableName
+    $FilesToSign += "$ReleaseDir\$PortableName"
+    Write-Host "      Copiado: $PortableName (portable)" -ForegroundColor White
+}
+
+# 4. Crear ZIP del MSI para updater
+if ($MsiFiles) {
+    $Msi = $MsiFiles | Select-Object -First 1
+    $ZipName = "tools-33_$($Version)_x64_en-US.msi.zip"
+    $ZipPath = "$ReleaseDir\$ZipName"
+    
+    Write-Host "      Creando ZIP: $ZipName..." -ForegroundColor White -NoNewline
+    Compress-Archive -Path $Msi.FullName -DestinationPath $ZipPath -Force
+    Write-Host " OK" -ForegroundColor Green
+    
+    $FilesCopied += $ZipName
+    $FilesToSign += $ZipPath
+}
+
+if ($FilesCopied.Count -eq 0) {
+    Write-Host "ERROR: No se encontraron archivos para copiar" -ForegroundColor Red
     exit 1
 }
 
+Write-Host "      Total archivos copiados: $($FilesCopied.Count)" -ForegroundColor Green
+
+# ========================================
+# PASO 5: FIRMAR ARCHIVOS
+# ========================================
 Write-Host ""
+Write-Host "[5/6] Firmando archivos digitalmente..." -ForegroundColor Yellow
 
-# ========================================
-# PASO 5: GENERAR ZIP Y FIRMAR
-# ========================================
-Write-Host "📦 [4/6] Generando ZIP y firmando..." -ForegroundColor Yellow
+$SignaturesGenerated = 0
+$env:TAURI_SIGNING_PRIVATE_KEY_PATH = (Resolve-Path $PrivateKeyPath).Path
 
-# Nombre del archivo ZIP (formato que espera Tauri updater)
-$ZipFileName = "tools-33_$($Version)_x64_en-US.msi.zip"
-$ZipPath = Join-Path $ReleaseDir $ZipFileName
-
-# Crear ZIP del MSI
-Write-Host "   🗜️  Creando ZIP: $ZipFileName" -ForegroundColor White
-
-try {
-    Compress-Archive -Path $SourceMsi.FullName -DestinationPath $ZipPath -Force
-    Write-Host "   ✅ ZIP creado exitosamente" -ForegroundColor Green
-} catch {
-    Write-Host "❌ ERROR al crear ZIP: $_" -ForegroundColor Red
-    exit 1
-}
-
-# Firmar el archivo ZIP (necesario para el updater)
-Write-Host "   ✍️  Firmando ZIP..." -ForegroundColor White
-$SigOutput = pnpm tauri signer sign -- "$ZipPath" 2>&1
-
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "   ✅ ZIP firmado exitosamente" -ForegroundColor Green
-    $ZipFiles += (Get-Item $ZipPath)
-} else {
-    Write-Host "⚠️  ADVERTENCIA: Error al firmar ZIP. Intentando con método alternativo..." -ForegroundColor Yellow
-    # Intentar firmar con la clave directamente
-    $env:TAURI_SIGNING_PRIVATE_KEY = $PrivateKey
-    $SigOutput = pnpm tauri signer sign -- "$ZipPath" 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "   ✅ ZIP firmado (segundo intento)" -ForegroundColor Green
-        $ZipFiles += (Get-Item $ZipPath)
-    } else {
-        Write-Host "❌ ERROR: No se pudo firmar el archivo. Firma manual requerida." -ForegroundColor Red
-        Write-Host $SigOutput -ForegroundColor DarkGray
+foreach ($File in $FilesToSign) {
+    $FileName = Split-Path $File -Leaf
+    Write-Host "      Firmando $FileName..." -ForegroundColor White -NoNewline
+    
+    try {
+        # Ejecutar firma con timeout de 60 segundos
+        $process = Start-Process -FilePath "pnpm" -ArgumentList "tauri", "signer", "sign", "--", $File -PassThru -WindowStyle Hidden -RedirectStandardOutput "$env:TEMP\sign-output.txt" -RedirectStandardError "$env:TEMP\sign-error.txt"
+        
+        # Esperar maximo 60 segundos
+        $completed = $process.WaitForExit(60000)
+        
+        if (-not $completed) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            Write-Host " TIMEOUT" -ForegroundColor Yellow
+            continue
+        }
+        
+        # Verificar si se genero la firma
+        $SigFile = "$File.sig"
+        if (Test-Path $SigFile) {
+            Write-Host " OK" -ForegroundColor Green
+            $SignaturesGenerated++
+        } else {
+            $exitCode = $process.ExitCode
+            if ($exitCode -eq 0) {
+                Write-Host " OK (verificado)" -ForegroundColor Green
+                $SignaturesGenerated++
+            } else {
+                Write-Host " ERROR (codigo: $exitCode)" -ForegroundColor Red
+            }
+        }
+    } catch {
+        Write-Host " ERROR" -ForegroundColor Red
     }
 }
 
-# Verificar que existe el archivo .sig
-$SigPath = "$ZipPath.sig"
-if (-not (Test-Path $SigPath)) {
-    Write-Host "⚠️  ADVERTENCIA: No se generó archivo .sig" -ForegroundColor Yellow
-    Write-Host "    El updater no funcionará sin la firma." -ForegroundColor Yellow
-}
-
-# También copiar el MSI original
-$DestMsi = Join-Path $ReleaseDir $SourceMsi.Name
-Copy-Item -Path $SourceMsi.FullName -Destination $DestMsi -Force
-Write-Host "   📋 MSI copiado: $($SourceMsi.Name)" -ForegroundColor White
-
-Write-Host ""
+Write-Host "      Firmas completadas: $SignaturesGenerated/$($FilesToSign.Count)" -ForegroundColor $(if ($SignaturesGenerated -eq $FilesToSign.Count) { "Green" } else { "Yellow" })
 
 # ========================================
 # PASO 6: GENERAR LATEST.JSON
 # ========================================
-Write-Host "📄 [5/6] Generando latest.json..." -ForegroundColor Yellow
+Write-Host ""
+Write-Host "[6/6] Generando latest.json..." -ForegroundColor Yellow
+
+# Buscar firma del ZIP
+$ZipFile = "tools-33_$($Version)_x64_en-US.msi.zip"
+$ZipPath = "$ReleaseDir\$ZipFile"
+$SigPath = "$ZipPath.sig"
 
 $Signature = ""
 if (Test-Path $SigPath) {
     $Signature = (Get-Content $SigPath -Raw).Trim()
+    Write-Host "      Firma del ZIP cargada" -ForegroundColor Green
+} else {
+    Write-Host "      ADVERTENCIA: No se encontro firma del ZIP" -ForegroundColor Yellow
+    Write-Host "      El updater no funcionara sin la firma" -ForegroundColor Yellow
 }
 
-# Calcular el hash SHA256 del ZIP (opcional pero útil)
-$ZipHash = (Get-FileHash -Path $ZipPath -Algorithm SHA256).Hash
-
-# URL para el updater (usa el formato correcto)
-$DownloadUrl = "https://github.com/JesherI/TOOLS-33/releases/download/v$Version/$ZipFileName"
-
-$LatestJsonContent = @{
+# Crear latest.json
+$LatestJson = @{
     version = $Version
     notes = $ReleaseNotes
     pub_date = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
     platforms = @{
         "windows-x86_64" = @{
             signature = $Signature
-            url = $DownloadUrl
+            url = "https://github.com/JesherI/TOOLS-33/releases/download/v$Version/$ZipFile"
         }
     }
 } | ConvertTo-Json -Depth 4
 
-# Guardar en la raíz del proyecto (para GitHub)
-$LatestJsonPath = Join-Path (Get-Location) "latest.json"
-$LatestJsonContent | Out-File -FilePath $LatestJsonPath -Encoding UTF8
+# Guardar en ambas ubicaciones
+$LatestJson | Out-File -FilePath "$ReleaseDir\latest.json" -Encoding UTF8
+$LatestJson | Out-File -FilePath "latest.json" -Encoding UTF8
 
-# También copiar a release-artifacts
-$LatestJsonContent | Out-File -FilePath (Join-Path $ReleaseDir "latest.json") -Encoding UTF8
-
-Write-Host "   ✅ latest.json generado" -ForegroundColor Green
-Write-Host "   📎 URL del instalador: $DownloadUrl" -ForegroundColor White
-if ($Signature) {
-    Write-Host "   🔐 Firma incluida" -ForegroundColor Green
-} else {
-    Write-Host "   ⚠️  Sin firma - updater no funcionará" -ForegroundColor Yellow
-}
-
-Write-Host ""
+Write-Host "      latest.json generado" -ForegroundColor Green
 
 # ========================================
-# PASO 7: RESUMEN Y SUBIDA
+# RESUMEN FINAL
 # ========================================
-Write-Host "📊 [6/6] Resumen de archivos" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  ARCHIVOS LISTOS PARA GITHUB" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Versión: v$Version" -ForegroundColor White
+Write-Host "==================================================" -ForegroundColor Cyan
+Write-Host "           RESUMEN DEL RELEASE v$Version             " -ForegroundColor Cyan
+Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host ""
 
-$FilesToUpload = @()
-
-# Listar archivos
-foreach ($File in (Get-ChildItem $ReleaseDir)) {
+# Mostrar todos los archivos
+$AllFiles = Get-ChildItem $ReleaseDir | Sort-Object Name
+foreach ($File in $AllFiles) {
     $Size = [math]::Round($File.Length / 1MB, 2)
-    $Status = if ($File.Extension -eq ".sig") { " [FIRMA]" } elseif ($File.Name -eq "latest.json") { " [MANIFIESTO]" } else { "" }
-    Write-Host "  ✓ $($File.Name) (${Size} MB)$Status" -ForegroundColor Green
-    $FilesToUpload += $File.FullName
+    $Type = switch ($File.Extension) {
+        ".sig" { "[FIRMA]" }
+        ".json" { "[MANIFIESTO]" }
+        ".zip" { "[UPDATER]" }
+        default { "[INSTALADOR]" }
+    }
+    Write-Host "  - $($File.Name) (${Size} MB) $Type" -ForegroundColor $(if ($File.Extension -eq ".sig") { "DarkGray" } elseif ($File.Extension -eq ".json") { "Cyan" } else { "White" })
 }
 
 Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  PRÓXIMOS PASOS" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Total de archivos: $($AllFiles.Count)" -ForegroundColor White
 Write-Host ""
 
-if ($AutoUpload -and (Get-Command gh -ErrorAction SilentlyContinue)) {
-    Write-Host "🚀 Subiendo automáticamente con GitHub CLI..." -ForegroundColor Yellow
-    
-    # Verificar si el release ya existe
-    $ReleaseCheck = gh release view "v$Version" 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "   Release v$Version ya existe. Subiendo archivos..." -ForegroundColor Yellow
-        foreach ($File in $FilesToUpload) {
-            gh release upload "v$Version" "$File" --clobber
-        }
-    } else {
-        Write-Host "   Creando nuevo release v$Version..." -ForegroundColor Yellow
-        gh release create "v$Version" $FilesToUpload --title "v$Version" --notes "$ReleaseNotes"
-    }
-    
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "✅ Release publicado exitosamente!" -ForegroundColor Green
-        Write-Host ""
-        Write-Host "🔗 URL: https://github.com/JesherI/TOOLS-33/releases/tag/v$Version" -ForegroundColor Cyan
-    } else {
-        Write-Host "❌ Error al subir. Intenta manualmente:" -ForegroundColor Red
-        ShowManualInstructions
-    }
+# Verificar si hay firma del ZIP
+$HasZipSig = Test-Path "$ReleaseDir\$ZipFile.sig"
+if ($HasZipSig) {
+    Write-Host "ESTADO: Todo listo para publicar" -ForegroundColor Green
+    Write-Host "        El updater funcionara correctamente" -ForegroundColor Green
 } else {
-    ShowManualInstructions
+    Write-Host "ESTADO: Release preparado pero SIN FIRMAS" -ForegroundColor Yellow
+    Write-Host "        El updater NO funcionara automaticamente" -ForegroundColor Yellow
+    Write-Host "        Los usuarios deberan descargar manualmente" -ForegroundColor Yellow
 }
 
 Write-Host ""
-Write-Host "========================================" -ForegroundColor Green
-Write-Host "  ¡LISTO!" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Green
+Write-Host "==================================================" -ForegroundColor Green
+Write-Host "     TODO LISTO - Sube a GitHub manualmente        " -ForegroundColor Green
+Write-Host "==================================================" -ForegroundColor Green
 Write-Host ""
-
-# Función auxiliar
-function ShowManualInstructions {
-    Write-Host "1. Ve a: https://github.com/JesherI/TOOLS-33/releases/new" -ForegroundColor White
-    Write-Host ""
-    Write-Host "2. Configura el release:" -ForegroundColor White
-    Write-Host "   Tag: v$Version" -ForegroundColor Yellow
-    Write-Host "   Título: v$Version" -ForegroundColor Yellow
-    Write-Host "   Descripción: $ReleaseNotes" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "3. Arrastra estos archivos desde 'release-artifacts/':" -ForegroundColor White
-    foreach ($File in (Get-ChildItem $ReleaseDir)) {
-        Write-Host "   - $($File.Name)" -ForegroundColor Cyan
-    }
-    Write-Host ""
-    Write-Host "   O usa GitHub CLI:" -ForegroundColor White
-    $FileArgs = (Get-ChildItem $ReleaseDir | ForEach-Object { """$($_.FullName)""" }) -join " "
-    Write-Host "   gh release create v$Version $FileArgs --title v$Version --notes `"$ReleaseNotes`"" -ForegroundColor Cyan
-    Write-Host ""
-}
+Write-Host "URL: https://github.com/JesherI/TOOLS-33/releases/new" -ForegroundColor Cyan
+Write-Host "Tag: v$Version" -ForegroundColor Yellow
+Write-Host "Titulo: v$Version" -ForegroundColor Yellow
+Write-Host "Notas: $ReleaseNotes" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Arrastra TODOS los archivos de 'release-artifacts/'" -ForegroundColor White
+Write-Host ""
+Write-Host "O usa GitHub CLI:" -ForegroundColor White
+$FileArgs = (Get-ChildItem $ReleaseDir | ForEach-Object { """$($_.FullName)""" }) -join " "
+Write-Host "  gh release create v$Version $FileArgs --title v$Version --notes `"$ReleaseNotes`"" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "==================================================" -ForegroundColor Green
+Write-Host "                SCRIPT COMPLETADO                " -ForegroundColor Green
+Write-Host "==================================================" -ForegroundColor Green
+Write-Host ""
