@@ -3,9 +3,9 @@
   "platforms": {
     "windows-x86_64": {
       "url": "https://github.com/JesherI/TOOLS-33/releases/download/v0.1.9/tools-33_0.1.9_x64_en-US.msi",
-      "signature": "PENDIENTE_FIRMA_MANUAL"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJBQjQyNURCQkNBNTIyNEIKUldSTElxVzgyeVcwdWs2dmRhYk1mWUFLNTJ3NDJHSkJrbTlIUVBxN2ZwbHZjc2o1aXpKRUZBVFoK"
     }
   },
-  "notes": "✅ Sistema de actualizaciones automáticas funcionando. Instalador MSI disponible.",
-  "pub_date": "2026-04-19T02:23:20Z"
+  "notes": "✅ Actualización automática disponible. Sistema de actualizaciones corregido.",
+  "pub_date": "2026-04-19T03:09:00Z"
 }
