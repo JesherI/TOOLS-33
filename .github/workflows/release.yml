@@ -93,17 +93,47 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Commit latest.json
+      - name: Checkout main for commit
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download latest.json from release
         run: |
-          if (Test-Path "latest.json") {
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add -f latest.json
-            git commit -m "chore: Update latest.json for ${{ github.ref_name }}" || echo "No changes to commit"
-            git push || echo "Nothing to push"
-          } else {
-            Write-Host "latest.json not found - Tauri may not have generated it"
+          # Descargar latest.json del release generado por Tauri
+          $version = "${{ github.ref_name }}"
+          gh release download $version --pattern "latest.json" --repo JesherI/TOOLS-33 --dir . 2>$null || echo "latest.json not in release"
+          
+          # Si no está en release, crearlo desde el que Tauri generó en el paso anterior
+          if (-not (Test-Path "latest.json")) {
+            Write-Host "Creating latest.json manually"
+            $ver = $version.Replace("v", "")
+            $json = @{
+              version = $ver
+              platforms = @{
+                "windows-x86_64" = @{
+                  url = "https://github.com/JesherI/TOOLS-33/releases/download/$version/tools-33_$($ver)_x64_en-US.msi"
+                  signature = ""
+                }
+              }
+              notes = "✅ Actualización automática disponible"
+              pub_date = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+            } | ConvertTo-Json -Depth 3
+            $json | Out-File -FilePath "latest.json" -Encoding utf8
           }
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit latest.json to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f latest.json
+          git diff --cached --quiet || (git commit -m "chore: Update latest.json for ${{ github.ref_name }}" && git push)
+          Write-Host "latest.json committed to main"
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
