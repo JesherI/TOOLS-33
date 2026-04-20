@@ -1,72 +1,62 @@
 ; NSIS Installer Hooks for TOOLS 33
-; Installs Ghostscript automatically during setup
+; Optional Ghostscript installation with user consent
 
 !macro NSIS_HOOK_PREINSTALL
-  ; This runs before installing TOOLS 33 files
-  DetailPrint "Preparing installation..."
+  DetailPrint "Preparing TOOLS 33 installation..."
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
-  ; This runs after TOOLS 33 files are installed
-  DetailPrint "Installing Ghostscript (required component)..."
-  
-  ; Get the installation directory
-  Push $INSTDIR
+  DetailPrint "TOOLS 33 installation complete!"
   
   ; Check if Ghostscript is already installed
-  IfFileExists "$PROGRAMFILES64\gs\*.*" GhostscriptAlreadyInstalled
-  IfFileExists "$PROGRAMFILES\gs\*.*" GhostscriptAlreadyInstalled
+  IfFileExists "$PROGRAMFILES64\gs\gs10.07.0\bin\gswin64c.exe" GhostscriptAlreadyInstalled
+  IfFileExists "$PROGRAMFILES\gs\gs10.07.0\bin\gswin64c.exe" GhostscriptAlreadyInstalled
+  IfFileExists "$PROGRAMFILES64\gs\*\bin\gswin64c.exe" GhostscriptAlreadyInstalled
+  IfFileExists "$PROGRAMFILES\gs\*\bin\gswin64c.exe" GhostscriptAlreadyInstalled
   
-  ; Ghostscript installer path (bundled with TOOLS 33)
-  ; The bundled file is extracted to $INSTDIR during installation
-  IfFileExists "$INSTDIR\bundled\gs10070w64.exe" InstallGhostscript
-  IfFileExists "$INSTDIR\bundled\ghostscript.exe" InstallGhostscriptAlt
-  
-  ; If bundled file not found, check other locations
-  IfFileExists "$EXEDIR\gs10070w64.exe" InstallGhostscriptFromSource
-  
-  DetailPrint "Warning: Ghostscript installer not found in bundle"
-  Goto GhostscriptDone
+  ; Ghostscript not found - ask user
+  MessageBox MB_YESNO "Ghostscript not detected. Install now for PDF features?" IDYES InstallGhostscript IDNO SkipGhostscript
   
 InstallGhostscript:
-  DetailPrint "Installing Ghostscript 10.07.0..."
-  ExecWait '"$INSTDIR\bundled\gs10070w64.exe" /S' $0
-  DetailPrint "Ghostscript installation completed with code: $0"
-  Goto GhostscriptDone
-  
-InstallGhostscriptAlt:
   DetailPrint "Installing Ghostscript..."
-  ExecWait '"$INSTDIR\bundled\ghostscript.exe" /S' $0
-  DetailPrint "Ghostscript installation completed with code: $0"
+  IfFileExists "$INSTDIR\bundled\gs10070w64.exe" GhostscriptInstallerFound
+  MessageBox MB_OK "Ghostscript installer not found. Please install manually from ghostscript.com"
   Goto GhostscriptDone
   
-InstallGhostscriptFromSource:
-  DetailPrint "Installing Ghostscript from source directory..."
-  ExecWait '"$EXEDIR\gs10070w64.exe" /S' $0
-  DetailPrint "Ghostscript installation completed with code: $0"
+GhostscriptInstallerFound:
+  ExecWait '"$INSTDIR\bundled\gs10070w64.exe"'
+  IfFileExists "$PROGRAMFILES64\gs\*\bin\gswin64c.exe" GhostscriptInstallSuccess
+  IfFileExists "$PROGRAMFILES\gs\*\bin\gswin64c.exe" GhostscriptInstallSuccess
+  MessageBox MB_OK "Ghostscript installation failed or was cancelled."
+  Goto GhostscriptDone
+  
+GhostscriptInstallSuccess:
+  DetailPrint "Ghostscript installed successfully!"
+  MessageBox MB_OK "Ghostscript installed successfully! All PDF features available."
   Goto GhostscriptDone
   
 GhostscriptAlreadyInstalled:
-  DetailPrint "Ghostscript already installed, skipping..."
+  DetailPrint "Ghostscript already installed."
+  Goto GhostscriptDone
+  
+SkipGhostscript:
+  DetailPrint "User skipped Ghostscript."
+  MessageBox MB_OK "Ghostscript not installed. PDF compression will not be available."
+  Goto GhostscriptDone
   
 GhostscriptDone:
-  DetailPrint "Component installation complete."
-  
-  ; Refresh environment variables so Ghostscript is available immediately
+  DetailPrint "Installation complete."
   System::Call 'kernel32.dll::SendMessageTimeout(i 0xFFFF, i 0x001A, i 0, t "Environment", i 0x0002, i 5000, *i .r0) i.r1'
+  MessageBox MB_OK "Installation Complete! TOOLS 33 is ready to use."
   
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
-  ; This runs before uninstalling TOOLS 33
   DetailPrint "Preparing uninstallation..."
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
-  ; This runs after uninstalling TOOLS 33
   DetailPrint "Cleaning up..."
-  
-  ; Note: We don't uninstall Ghostscript automatically because
-  ; other applications might depend on it
-  DetailPrint "Ghostscript has been left installed (shared component)"
+  DetailPrint "Note: Ghostscript (if installed) was not removed."
+  DetailPrint "Uninstallation complete."
 !macroend
