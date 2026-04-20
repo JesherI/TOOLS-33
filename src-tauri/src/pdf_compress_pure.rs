@@ -117,6 +117,7 @@ pub async fn compress_pdf_rust(
     input_path: String,
     output_path: String,
     level: CompressionLevel,
+    architect_mode: bool,
 ) -> Result<CompressionResult, String> {
     let input_full = get_temp_path(&input_path);
     let output_full = get_temp_path(&output_path);
@@ -137,6 +138,17 @@ pub async fn compress_pdf_rust(
     
     // Intentar Ghostscript primero
     if let Some(gs_cmd) = find_ghostscript() {
+        // Si modo arquitectura está activado, usar optimización especial
+        if architect_mode {
+            match compress_with_ghostscript_architect(&input_full, &output_full, &gs_cmd, &level) {
+                Ok(result) => return Ok(result),
+                Err(e) => {
+                    // Si falla modo arquitectura, intentar modo normal
+                    eprintln!("Modo arquitectura falló: {}. Intentando modo normal...", e);
+                }
+            }
+        }
+        
         match compress_with_ghostscript(&input_full, &output_full, &gs_cmd, &level) {
             Ok(result) => return Ok(result),
             Err(_) => {}
@@ -247,6 +259,123 @@ fn compress_with_ghostscript(
                 }
             }
             Err(_) => Err("Error ejecutando Ghostscript".to_string()),
+        }
+    }
+}
+
+/// Compresión especial para PDFs arquitectónicos (CAD/Revit/AutoCAD)
+/// Optimiza vectores complejos, elimina metadatos CAD, reduce calidad de imágenes incrustadas
+fn compress_with_ghostscript_architect(
+    input: &PathBuf,
+    output: &PathBuf,
+    gs_cmd: &str,
+    level: &CompressionLevel,
+) -> Result<CompressionResult, String> {
+    let pdf_settings = format!("-dPDFSETTINGS={}", level.to_gs_param());
+    let output_file = format!("-sOutputFile={}", output.to_string_lossy());
+    let input_file = input.to_string_lossy().to_string();
+    
+    // Parámetros especiales para PDFs arquitectónicos
+    let args = vec![
+        "-sDEVICE=pdfwrite",
+        "-dCompatibilityLevel=1.4",
+        &pdf_settings,
+        "-dNOPAUSE",
+        "-dQUIET",
+        "-dBATCH",
+        // Optimizaciones específicas para CAD
+        "-dDetectDuplicateImages=true",
+        "-dCompressFonts=true",
+        "-dOptimize=true",
+        "-dDownsampleColorImages=true",
+        "-dDownsampleGrayImages=true",
+        "-dDownsampleMonoImages=true",
+        "-dColorImageResolution=150",  // Reducir resolución de imágenes color
+        "-dGrayImageResolution=150",   // Reducir resolución de imágenes grises
+        "-dMonoImageResolution=300",     // Mantener monocromo (líneas CAD) a 300dpi
+        // Eliminar metadatos y estructuras complejas
+        "-dPrinted=false",               // Eliminar info de impresión
+        "-dPreserveAnnots=false",        // Eliminar anotaciones complejas
+        &output_file,
+        &input_file,
+    ];
+    
+    // Ejecutar comando silencioso
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        
+        let result = Command::new(gs_cmd)
+            .args(&args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+        
+        match result {
+            Ok(cmd_output) => {
+                if cmd_output.status.success() {
+                    let original_size = std::fs::metadata(input).map(|m| m.len()).unwrap_or(0);
+                    let compressed_size = std::fs::metadata(output).map(|m| m.len()).unwrap_or(0);
+                    
+                    let ratio = if compressed_size > 0 && compressed_size < original_size {
+                        let reduction = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
+                        format!("{:.1}%", reduction)
+                    } else {
+                        "0%".to_string()
+                    };
+                    
+                    Ok(CompressionResult {
+                        success: true,
+                        original_size,
+                        compressed_size: Some(compressed_size),
+                        compression_ratio: Some(ratio),
+                        error: None,
+                        method: "ghostscript-architect".to_string(),
+                    })
+                } else {
+                    Err("Ghostscript architect mode failed".to_string())
+                }
+            }
+            Err(e) => Err(format!("Error ejecutando Ghostscript architect: {}", e)),
+        }
+    }
+    
+    #[cfg(not(windows))]
+    {
+        let result = Command::new(gs_cmd)
+            .args(&args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .output();
+        
+        match result {
+            Ok(cmd_output) => {
+                if cmd_output.status.success() {
+                    let original_size = std::fs::metadata(input).map(|m| m.len()).unwrap_or(0);
+                    let compressed_size = std::fs::metadata(output).map(|m| m.len()).unwrap_or(0);
+                    
+                    let ratio = if compressed_size > 0 && compressed_size < original_size {
+                        let reduction = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
+                        format!("{:.1}%", reduction)
+                    } else {
+                        "0%".to_string()
+                    };
+                    
+                    Ok(CompressionResult {
+                        success: true,
+                        original_size,
+                        compressed_size: Some(compressed_size),
+                        compression_ratio: Some(ratio),
+                        error: None,
+                        method: "ghostscript-architect".to_string(),
+                    })
+                } else {
+                    Err("Ghostscript architect mode failed".to_string())
+                }
+            }
+            Err(e) => Err(format!("Error ejecutando Ghostscript architect: {}", e)),
         }
     }
 }

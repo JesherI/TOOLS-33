@@ -17,7 +17,8 @@ export interface CompressionResult {
 export async function compressPDFWithRust(
   inputPath: string,
   outputPath: string,
-  level: CompressionLevel
+  level: CompressionLevel,
+  architectMode: boolean = false
 ): Promise<CompressionResult> {
   console.log(`[compressPDFWithRust] Iniciando...`, { inputPath, outputPath, level });
   
@@ -26,6 +27,7 @@ export async function compressPDFWithRust(
       inputPath,
       outputPath,
       level,
+      architectMode,
     });
     console.log(`[compressPDFWithRust] Resultado:`, result);
     return result;

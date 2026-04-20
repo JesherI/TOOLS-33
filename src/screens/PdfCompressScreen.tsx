@@ -29,6 +29,7 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
   const [phase, setPhase] = useState<"upload" | "list" | "compressing">("upload");
   const [files, setFiles] = useState<FileItem[]>([]);
   const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>("medium");
+  const [architectMode, setArchitectMode] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -114,7 +115,8 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
         const result = await compressPDFWithRust(
           tempInput,
           tempOutput,
-          compressionLevel
+          compressionLevel,
+          architectMode
         );
 
         setFiles(prev => prev.map(f => 
@@ -412,6 +414,28 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
                   <label className="block text-sm font-medium text-gray-400 mb-3">
                     Nivel de compresión
                   </label>
+                  
+                  {/* Modo Arquitectura */}
+                  <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={architectMode}
+                        onChange={(e) => setArchitectMode(e.target.checked)}
+                        className="mt-1 w-4 h-4 rounded border-blue-500/50 bg-black/40 text-blue-500 focus:ring-blue-500/50"
+                      />
+                      <div>
+                        <span className="block text-sm font-semibold text-blue-400">
+                          Modo Arquitectura (Beta)
+                        </span>
+                        <span className="block text-xs text-blue-300/70 mt-1">
+                          Optimización especial para PDFs de AutoCAD/Revit. 
+                          Simplifica vectores complejos y reduce metadatos CAD. 
+                          ⚠️ Puede fallar con algunos archivos - usar con precaución.
+                        </span>
+                      </div>
+                    </label>
+                  </div>
                   <div className="grid grid-cols-3 gap-3">
                     {(["light", "medium", "high"] as CompressionLevel[]).map(
                       (level) => (
