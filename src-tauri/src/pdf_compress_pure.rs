@@ -117,7 +117,7 @@ pub async fn compress_pdf_rust(
     input_path: String,
     output_path: String,
     level: CompressionLevel,
-    architect_mode: bool,
+    flatten_mode: bool,
 ) -> Result<CompressionResult, String> {
     let input_full = get_temp_path(&input_path);
     let output_full = get_temp_path(&output_path);
@@ -138,13 +138,12 @@ pub async fn compress_pdf_rust(
     
     // Intentar Ghostscript primero
     if let Some(gs_cmd) = find_ghostscript() {
-        // Si modo arquitectura está activado, usar optimización especial
-        if architect_mode {
-            match compress_with_ghostscript_architect(&input_full, &output_full, &gs_cmd, &level) {
+        // Si modo flatten está activado, convertir a imagen plana
+        if flatten_mode {
+            match flatten_pdf_to_image(&input_full, &output_full, &gs_cmd) {
                 Ok(result) => return Ok(result),
                 Err(e) => {
-                    // Si falla modo arquitectura, intentar modo normal
-                    eprintln!("Modo arquitectura falló: {}. Intentando modo normal...", e);
+                    eprintln!("Modo flatten falló: {}. Intentando modo normal...", e);
                 }
             }
         }
@@ -263,51 +262,45 @@ fn compress_with_ghostscript(
     }
 }
 
-/// Compresión especial para PDFs arquitectónicos (CAD/Revit/AutoCAD)
-/// Optimiza vectores complejos, elimina metadatos CAD, reduce calidad de imágenes incrustadas
-fn compress_with_ghostscript_architect(
+/// Modo Flatten: Convierte PDF a imagen raster (PNG) a 300dpi, luego a PDF plano
+/// Similar a "Flatten Image" en Photoshop - elimina capas vectoriales y metadatos CAD
+fn flatten_pdf_to_image(
     input: &PathBuf,
     output: &PathBuf,
     gs_cmd: &str,
-    level: &CompressionLevel,
 ) -> Result<CompressionResult, String> {
-    let pdf_settings = format!("-dPDFSETTINGS={}", level.to_gs_param());
-    let output_file = format!("-sOutputFile={}", output.to_string_lossy());
+    use std::path::Path;
+    
+    let original_size = std::fs::metadata(input).map(|m| m.len()).unwrap_or(0);
+    let temp_dir = std::env::temp_dir();
+    let base_name = input.file_stem().unwrap_or_default().to_string_lossy();
+    
+    // Paso 1: Convertir PDF a imagen PNG a 300dpi (alta calidad para impresión)
+    let png_output = temp_dir.join(format!("{}_flattened.png", base_name));
+    let png_output_str = format!("-sOutputFile={}", png_output.to_string_lossy());
     let input_file = input.to_string_lossy().to_string();
     
-    // Parámetros especiales para PDFs arquitectónicos
-    let args = vec![
-        "-sDEVICE=pdfwrite",
-        "-dCompatibilityLevel=1.4",
-        &pdf_settings,
+    let gs_args = vec![
+        "-sDEVICE=png16m",              // PNG 24-bit color
+        "-r300",                        // 300 DPI para buena calidad de impresión
         "-dNOPAUSE",
         "-dQUIET",
         "-dBATCH",
-        // Optimizaciones específicas para CAD
-        "-dDetectDuplicateImages=true",
-        "-dCompressFonts=true",
-        "-dOptimize=true",
-        "-dDownsampleColorImages=true",
-        "-dDownsampleGrayImages=true",
-        "-dDownsampleMonoImages=true",
-        "-dColorImageResolution=150",  // Reducir resolución de imágenes color
-        "-dGrayImageResolution=150",   // Reducir resolución de imágenes grises
-        "-dMonoImageResolution=300",     // Mantener monocromo (líneas CAD) a 300dpi
-        // Eliminar metadatos y estructuras complejas
-        "-dPrinted=false",               // Eliminar info de impresión
-        "-dPreserveAnnots=false",        // Eliminar anotaciones complejas
-        &output_file,
+        "-dGraphicsAlphaBits=4",        // Suavizado de bordes
+        "-dTextAlphaBits=4",            // Suavizado de texto
+        "-dUseTrimBox",                 // Usar trimbox si existe
+        &png_output_str,
         &input_file,
     ];
     
-    // Ejecutar comando silencioso
+    // Ejecutar Ghostscript para convertir a PNG
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         
         let result = Command::new(gs_cmd)
-            .args(&args)
+            .args(&gs_args)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .creation_flags(CREATE_NO_WINDOW)
@@ -315,49 +308,75 @@ fn compress_with_ghostscript_architect(
         
         match result {
             Ok(cmd_output) => {
-                if cmd_output.status.success() {
-                    let original_size = std::fs::metadata(input).map(|m| m.len()).unwrap_or(0);
-                    let compressed_size = std::fs::metadata(output).map(|m| m.len()).unwrap_or(0);
-                    
-                    let ratio = if compressed_size > 0 && compressed_size < original_size {
-                        let reduction = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
-                        format!("{:.1}%", reduction)
-                    } else {
-                        "0%".to_string()
-                    };
-                    
-                    Ok(CompressionResult {
-                        success: true,
-                        original_size,
-                        compressed_size: Some(compressed_size),
-                        compression_ratio: Some(ratio),
-                        error: None,
-                        method: "ghostscript-architect".to_string(),
-                    })
-                } else {
-                    Err("Ghostscript architect mode failed".to_string())
+                if !cmd_output.status.success() {
+                    return Err("Ghostscript failed converting PDF to PNG".to_string());
                 }
             }
-            Err(e) => Err(format!("Error ejecutando Ghostscript architect: {}", e)),
+            Err(e) => return Err(format!("Error ejecutando Ghostscript: {}", e)),
         }
     }
     
     #[cfg(not(windows))]
     {
         let result = Command::new(gs_cmd)
-            .args(&args)
+            .args(&gs_args)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .output();
         
         match result {
             Ok(cmd_output) => {
+                if !cmd_output.status.success() {
+                    return Err("Ghostscript failed converting PDF to PNG".to_string());
+                }
+            }
+            Err(e) => return Err(format!("Error ejecutando Ghostscript: {}", e)),
+        }
+    }
+    
+    // Verificar que se creó el PNG
+    if !png_output.exists() {
+        return Err("PNG file was not created".to_string());
+    }
+    
+    // Paso 2: Convertir PNG de vuelta a PDF
+    let output_file = format!("-sOutputFile={}", output.to_string_lossy());
+    let png_input = png_output.to_string_lossy().to_string();
+    
+    let pdf_args = vec![
+        "-sDEVICE=pdfwrite",
+        "-dCompatibilityLevel=1.4",
+        "-dNOPAUSE",
+        "-dQUIET",
+        "-dBATCH",
+        "-dAutoRotatePages=/None",      // No rotar automáticamente
+        "-dColorConversionStrategy=/LeaveColorUnchanged",
+        &output_file,
+        &png_input,
+    ];
+    
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        
+        let result = Command::new(gs_cmd)
+            .args(&pdf_args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+        
+        match result {
+            Ok(cmd_output) => {
+                // Limpiar archivo PNG temporal
+                let _ = std::fs::remove_file(&png_output);
+                
                 if cmd_output.status.success() {
-                    let original_size = std::fs::metadata(input).map(|m| m.len()).unwrap_or(0);
-                    let compressed_size = std::fs::metadata(output).map(|m| m.len()).unwrap_or(0);
+                    let flattened_size = std::fs::metadata(output).map(|m| m.len()).unwrap_or(0);
                     
-                    let ratio = if compressed_size > 0 && compressed_size < original_size {
-                        let reduction = (1.0 - (compressed_size as f64 / original_size as f64)) * 100.0;
+                    let ratio = if flattened_size > 0 && flattened_size < original_size {
+                        let reduction = (1.0 - (flattened_size as f64 / original_size as f64)) * 100.0;
                         format!("{:.1}%", reduction)
                     } else {
                         "0%".to_string()
@@ -366,16 +385,60 @@ fn compress_with_ghostscript_architect(
                     Ok(CompressionResult {
                         success: true,
                         original_size,
-                        compressed_size: Some(compressed_size),
+                        compressed_size: Some(flattened_size),
                         compression_ratio: Some(ratio),
                         error: None,
-                        method: "ghostscript-architect".to_string(),
+                        method: "ghostscript-flatten".to_string(),
                     })
                 } else {
-                    Err("Ghostscript architect mode failed".to_string())
+                    Err("Ghostscript failed converting PNG to PDF".to_string())
                 }
             }
-            Err(e) => Err(format!("Error ejecutando Ghostscript architect: {}", e)),
+            Err(e) => {
+                let _ = std::fs::remove_file(&png_output);
+                Err(format!("Error ejecutando Ghostscript: {}", e))
+            }
+        }
+    }
+    
+    #[cfg(not(windows))]
+    {
+        let result = Command::new(gs_cmd)
+            .args(&pdf_args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .output();
+        
+        match result {
+            Ok(cmd_output) => {
+                let _ = std::fs::remove_file(&png_output);
+                
+                if cmd_output.status.success() {
+                    let flattened_size = std::fs::metadata(output).map(|m| m.len()).unwrap_or(0);
+                    
+                    let ratio = if flattened_size > 0 && flattened_size < original_size {
+                        let reduction = (1.0 - (flattened_size as f64 / original_size as f64)) * 100.0;
+                        format!("{:.1}%", reduction)
+                    } else {
+                        "0%".to_string()
+                    };
+                    
+                    Ok(CompressionResult {
+                        success: true,
+                        original_size,
+                        compressed_size: Some(flattened_size),
+                        compression_ratio: Some(ratio),
+                        error: None,
+                        method: "ghostscript-flatten".to_string(),
+                    })
+                } else {
+                    Err("Ghostscript failed converting PNG to PDF".to_string())
+                }
+            }
+            Err(e) => {
+                let _ = std::fs::remove_file(&png_output);
+                Err(format!("Error ejecutando Ghostscript: {}", e))
+            }
         }
     }
 }

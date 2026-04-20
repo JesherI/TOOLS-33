@@ -29,7 +29,7 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
   const [phase, setPhase] = useState<"upload" | "list" | "compressing">("upload");
   const [files, setFiles] = useState<FileItem[]>([]);
   const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>("medium");
-  const [architectMode, setArchitectMode] = useState(false);
+  const [flattenMode, setFlattenMode] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -116,7 +116,7 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
           tempInput,
           tempOutput,
           compressionLevel,
-          architectMode
+          flattenMode
         );
 
         setFiles(prev => prev.map(f => 
@@ -415,23 +415,24 @@ export function PdfCompressScreen({ onNavigate }: PdfCompressScreenProps) {
                     Nivel de compresión
                   </label>
                   
-                  {/* Modo Arquitectura */}
-                  <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+                  {/* Modo Flatten */}
+                  <div className="mb-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl">
                     <label className="flex items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={architectMode}
-                        onChange={(e) => setArchitectMode(e.target.checked)}
-                        className="mt-1 w-4 h-4 rounded border-blue-500/50 bg-black/40 text-blue-500 focus:ring-blue-500/50"
+                        checked={flattenMode}
+                        onChange={(e) => setFlattenMode(e.target.checked)}
+                        className="mt-1 w-4 h-4 rounded border-purple-500/50 bg-black/40 text-purple-500 focus:ring-purple-500/50"
                       />
                       <div>
-                        <span className="block text-sm font-semibold text-blue-400">
-                          Modo Arquitectura (Beta)
+                        <span className="block text-sm font-semibold text-purple-400">
+                          Modo Flatten (Recomendado para CAD)
                         </span>
-                        <span className="block text-xs text-blue-300/70 mt-1">
-                          Optimización especial para PDFs de AutoCAD/Revit. 
-                          Simplifica vectores complejos y reduce metadatos CAD. 
-                          ⚠️ Puede fallar con algunos archivos - usar con precaución.
+                        <span className="block text-xs text-purple-300/70 mt-1">
+                          Convierte el PDF a imagen plana (como Photoshop). 
+                          Elimina capas vectoriales y metadatos CAD. 
+                          La impresora procesa más rápido. 
+                          ⚠️ Líneas muy finas pueden perder algo de nitidez.
                         </span>
                       </div>
                     </label>
