@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { LoadingScreen, ParticlesScreen, PdfCompressScreen } from "./screens";
+import { LoadingScreen, ParticlesScreen, PdfCompressScreen, MagazineScreen } from "./screens";
 
-type Screen = "loading" | "home" | "pdf-compress";
+type Screen = "loading" | "home" | "pdf-compress" | "magazine";
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("loading");
@@ -10,7 +10,7 @@ function App() {
     setCurrentScreen("home");
   };
 
-  const handleNavigate = (screen: "home" | "pdf-compress") => {
+  const handleNavigate = (screen: "home" | "pdf-compress" | "magazine") => {
     setCurrentScreen(screen);
   };
 
@@ -21,6 +21,8 @@ function App() {
       return <ParticlesScreen onNavigate={handleNavigate} />;
     case "pdf-compress":
       return <PdfCompressScreen onNavigate={handleNavigate} />;
+    case "magazine":
+      return <MagazineScreen onNavigate={handleNavigate} />;
     default:
       return <LoadingScreen onComplete={handleLoadingComplete} />;
   }

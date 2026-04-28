@@ -5,7 +5,7 @@ import { WindowControls } from "../components/window";
 import { Sidebar } from "../components/sidebar";
 
 interface ParticlesScreenProps {
-  onNavigate?: (screen: "home" | "pdf-compress") => void;
+  onNavigate?: (screen: "home" | "pdf-compress" | "magazine") => void;
 }
 
 interface SystemInfo {

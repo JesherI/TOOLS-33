@@ -4,8 +4,8 @@ import { downloadAndInstall } from "../../utils/updater";
 
 interface SidebarProps {
   className?: string;
-  currentScreen?: "home" | "pdf-compress";
-  onNavigate?: (screen: "home" | "pdf-compress") => void;
+  currentScreen?: "home" | "pdf-compress" | "magazine";
+  onNavigate?: (screen: "home" | "pdf-compress" | "magazine") => void;
 }
 
 export function Sidebar({ 
@@ -16,7 +16,7 @@ export function Sidebar({
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeItem, setActiveItem] = useState(currentScreen);
 
-  const handleNavigation = (screen: "home" | "pdf-compress") => {
+  const handleNavigation = (screen: "home" | "pdf-compress" | "magazine") => {
     setActiveItem(screen);
     onNavigate?.(screen);
   };
@@ -118,6 +118,37 @@ export function Sidebar({
             </svg>
             {isExpanded && (
               <span className="text-sm font-medium whitespace-nowrap">PDF Compress</span>
+            )}
+          </button>
+
+          {/* Magazine Builder */}
+          <button
+            onClick={() => handleNavigation("magazine")}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${
+              activeItem === "magazine"
+                ? "text-orange-400"
+                : "text-gray-400 hover:text-gray-200"
+            } ${isExpanded ? "justify-start" : "justify-center"}`}
+            style={{
+              background: activeItem === "magazine" ? "rgba(249, 115, 22, 0.15)" : "transparent",
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="shrink-0"
+            >
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+            {isExpanded && (
+              <span className="text-sm font-medium whitespace-nowrap">Magazine</span>
             )}
           </button>
         </div>

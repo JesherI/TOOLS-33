@@ -9,7 +9,7 @@ import {
 } from "../utils";
 
 interface PdfCompressScreenProps {
-  onNavigate?: (screen: "home" | "pdf-compress") => void;
+  onNavigate?: (screen: "home" | "pdf-compress" | "magazine") => void;
 }
 
 interface FileItem {
