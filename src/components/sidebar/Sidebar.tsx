@@ -4,8 +4,8 @@ import { downloadAndInstall } from "../../utils/updater";
 
 interface SidebarProps {
   className?: string;
-  currentScreen?: "home" | "pdf-compress" | "magazine";
-  onNavigate?: (screen: "home" | "pdf-compress" | "magazine") => void;
+  currentScreen?: "home" | "pdf-compress" | "magazine" | "image-scaler";
+  onNavigate?: (screen: "home" | "pdf-compress" | "magazine" | "image-scaler") => void;
 }
 
 export function Sidebar({ 
@@ -16,7 +16,7 @@ export function Sidebar({
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeItem, setActiveItem] = useState(currentScreen);
 
-  const handleNavigation = (screen: "home" | "pdf-compress" | "magazine") => {
+  const handleNavigation = (screen: "home" | "pdf-compress" | "magazine" | "image-scaler") => {
     setActiveItem(screen);
     onNavigate?.(screen);
   };
@@ -149,6 +149,38 @@ export function Sidebar({
             </svg>
             {isExpanded && (
               <span className="text-sm font-medium whitespace-nowrap">Magazine</span>
+            )}
+          </button>
+
+          {/* Image Scaler */}
+          <button
+            onClick={() => handleNavigation("image-scaler")}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${
+              activeItem === "image-scaler"
+                ? "text-orange-400"
+                : "text-gray-400 hover:text-gray-200"
+            } ${isExpanded ? "justify-start" : "justify-center"}`}
+            style={{
+              background: activeItem === "image-scaler" ? "rgba(249, 115, 22, 0.15)" : "transparent",
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="shrink-0"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+            {isExpanded && (
+              <span className="text-sm font-medium whitespace-nowrap">Image Scaler</span>
             )}
           </button>
         </div>
