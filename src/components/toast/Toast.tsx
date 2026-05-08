@@ -12,7 +12,7 @@ interface ToastContainerProps {
   onRemove: (id: string) => void;
 }
 
-export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
+export function ToastContainer({ toasts, onRemove: _onRemove }: ToastContainerProps) {
   return (
     <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2 pointer-events-none">
       <AnimatePresence>

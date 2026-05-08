@@ -10,12 +10,12 @@ interface EditableValueProps {
   className?: string;
 }
 
-export function EditableValue({ 
-  value, 
-  suffix = "", 
-  min, 
-  max, 
-  step = 1, 
+export function EditableValue({
+  value,
+  suffix = "",
+  min,
+  max,
+  step: _step,
   onChange,
   className = ""
 }: EditableValueProps) {

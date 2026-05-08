@@ -13,7 +13,7 @@ import {
   BottomControls,
   PaperSizeSelector,
   ExportFormatSelector,
-  type PaperSize,
+  // type PaperSize,
   type PaperDimensions,
   type TextureImage,
   type TextureSettings,
@@ -309,7 +309,7 @@ export function TextureGeneratorScreen({ onNavigate: _onNavigate }: TextureGener
     });
   };
 
-  const [generationProgress, setGenerationProgress] = useState<{current: number, total: number} | null>(null);
+  const [, setGenerationProgress] = useState<{current: number, total: number} | null>(null);
 
   const handleSave = async () => {
     if (images.length === 0) {
