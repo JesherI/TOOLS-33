@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from "react";
-import { WindowControls } from "../components/window";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ParticleCanvas } from "../components/particles";
 
 type InterpolationMethod = "lanczos-sharp" | "lanczos" | "bicubic" | "bilinear" | "nearest";
 
@@ -326,6 +326,145 @@ function downloadImage(
   link.click();
 }
 
+// Componente de comparación Before/After
+function BeforeAfterSlider({
+  beforeImage,
+  afterImage,
+  beforeLabel = "Original",
+  afterLabel = "Escalada",
+}: {
+  beforeImage: string;
+  afterImage: string | null;
+  beforeLabel?: string;
+  afterLabel?: string;
+}) {
+  const [sliderPosition, setSliderPosition] = useState(50);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleMove = useCallback(
+    (clientX: number) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+      const percent = (x / rect.width) * 100;
+      setSliderPosition(percent);
+    },
+    []
+  );
+
+  const handleMouseDown = () => setIsDragging(true);
+  const handleMouseUp = () => setIsDragging(false);
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging) handleMove(e.clientX);
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    handleMove(e.touches[0].clientX);
+  };
+
+  useEffect(() => {
+    const handleGlobalMouseUp = () => setIsDragging(false);
+    window.addEventListener("mouseup", handleGlobalMouseUp);
+    return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full h-full overflow-hidden rounded-xl cursor-ew-resize select-none"
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleMouseUp}
+    >
+      {/* Capa de fondo: imagen escalada (después) */}
+      <div className="absolute inset-0">
+        {afterImage ? (
+          <img
+            src={afterImage}
+            alt="Escalada"
+            className="w-full h-full object-contain"
+            draggable={false}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-black/20">
+            <div className="text-center text-gray-500">
+              <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <p className="text-sm">Vista previa</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Label de imagen escalada */}
+      <div className="absolute bottom-4 right-4 px-3 py-1.5 bg-orange-500/90 rounded-lg text-xs font-medium text-white backdrop-blur-sm">
+        {afterLabel}
+      </div>
+
+      {/* Capa superior: imagen original (antes) - con clip */}
+      <div
+        className="absolute inset-0 overflow-hidden"
+        style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+      >
+        <img
+          src={beforeImage}
+          alt="Original"
+          className="w-full h-full object-contain"
+          draggable={false}
+        />
+      </div>
+
+      {/* Label de imagen original */}
+      <div
+        className="absolute bottom-4 left-4 px-3 py-1.5 bg-white/10 rounded-lg text-xs font-medium text-white backdrop-blur-sm transition-opacity"
+        style={{ opacity: sliderPosition > 15 ? 1 : 0 }}
+      >
+        {beforeLabel}
+      </div>
+
+      {/* Línea del slider */}
+      <div
+        className="absolute top-0 bottom-0 w-0.5 bg-orange-500 cursor-ew-resize"
+        style={{ left: `${sliderPosition}%` }}
+      >
+        {/* Handle del slider */}
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-orange-500/30 cursor-ew-resize hover:scale-110 transition-transform"
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleMouseDown}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface ImageScalerScreenProps {
   onNavigate?: (screen: "home" | "pdf-compress" | "magazine" | "image-scaler") => void;
 }
@@ -436,384 +575,345 @@ export function ImageScalerScreen({ onNavigate: _onNavigate }: ImageScalerScreen
   };
 
   return (
-    <div className="w-screen h-screen bg-black overflow-hidden flex">
-      {/* Window Controls - Top right */}
-      <div className="absolute top-4 right-4 z-50" data-tauri-drag-region>
-        <WindowControls />
-      </div>
+    <div className="relative w-screen h-screen bg-black overflow-hidden">
+      {/* Particles Background */}
+      <ParticleCanvas
+        config={{
+          connectionDistance: 120,
+          mouseInfluenceRadius: 300,
+          mouseInfluenceStrength: 0.03,
+          returnSpeed: 0.05,
+          colors: {
+            particle: "#f97316",
+            connection: "rgba(249, 115, 22,",
+          },
+        }}
+        density={15000}
+      />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col pl-16 h-screen">
-        {/* Header - Compacto */}
-        <div className="pt-4 pb-3 px-6 border-b border-white/10 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+      <div className="absolute inset-0 pl-20 flex items-center justify-center">
+        <div className="w-full h-full max-w-7xl mx-8 py-6">
+          {/* Content Area - Sin título */}
+          <div className="flex gap-6 h-full">
+            {/* Left Panel - Controls */}
+            <div className="w-80 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex flex-col overflow-hidden">
+              {/* Drop Zone */}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`relative border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition-all duration-200 mb-3 flex-shrink-0 ${
+                  dragActive
+                    ? "border-orange-500 bg-orange-500/10"
+                    : "border-white/20 hover:border-white/40 hover:bg-white/5"
+                }`}
               >
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white">Image Scaler</h1>
-              <p className="text-xs text-gray-400">Escala imágenes con algoritmos de alta calidad</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Content Area */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Left Panel - Controls Compacto */}
-          <div className="w-80 bg-white/5 border-r border-white/10 p-4 flex flex-col overflow-hidden">
-            {/* Compact Drop Zone */}
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              className={`relative border-2 border-dashed rounded-xl p-3 text-center cursor-pointer transition-all duration-200 mb-3 flex-shrink-0 ${
-                dragActive
-                  ? "border-orange-500 bg-orange-500/10"
-                  : "border-white/20 hover:border-white/40 hover:bg-white/5"
-              }`}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileSelect(e.target.files)}
-                className="hidden"
-              />
-              <div className="flex items-center justify-center gap-3">
-                <svg
-                  className="w-6 h-6 text-gray-400 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  />
-                </svg>
-                <div className="text-left">
-                  <p className="text-white text-sm font-medium">Arrastra o haz clic</p>
-                  <p className="text-gray-500 text-xs">para seleccionar imagen</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileSelect(e.target.files)}
+                  className="hidden"
+                />
+                <div className="flex items-center justify-center gap-3">
+                  <svg
+                    className="w-6 h-6 text-gray-400 flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    />
+                  </svg>
+                  <div className="text-left">
+                    <p className="text-white text-sm font-medium">Arrastra o haz clic</p>
+                    <p className="text-gray-500 text-xs">para seleccionar imagen</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {image && (
-              <AnimatePresence>
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex-1 flex flex-col overflow-hidden"
-                >
-                  {/* Scrollable Settings Area */}
-                  <div className="flex-1 overflow-y-auto pr-1 space-y-3">
-                    {/* Original Image Info - Compact */}
-                    <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-                      <h3 className="text-xs font-medium text-orange-400 mb-2">Imagen Original</h3>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <span className="text-gray-500 block">Dimensiones</span>
-                          <span className="text-white">{image.originalWidth} × {image.originalHeight}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500 block">Tamaño</span>
-                          <span className="text-white">{formatFileSize(image.originalSize)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Scale Settings - Compact */}
-                    <div className="space-y-3">
-                      {/* Method Selection */}
-                      <div className="space-y-1">
-                        <label className="text-xs text-gray-400">Método</label>
-                        <select
-                          value={settings.method}
-                          onChange={(e) =>
-                            setSettings((prev) => ({
-                              ...prev,
-                              method: e.target.value as InterpolationMethod,
-                            }))
-                          }
-                          className="w-full bg-black/50 border border-white/20 rounded-lg px-3 py-2 text-white text-xs focus:border-orange-500 focus:outline-none"
-                        >
-                          {INTERPOLATION_METHODS.map((method) => (
-                            <option key={method.value} value={method.value}>
-                              {method.label}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="text-[10px] text-gray-500 leading-tight">
-                          {INTERPOLATION_METHODS.find((m) => m.value === settings.method)?.description}
-                        </p>
-                      </div>
-
-                      {/* Scale Factor */}
-                      <div className="space-y-1">
-                        <div className="flex justify-between">
-                          <label className="text-xs text-gray-400">Escala</label>
-                          <span className="text-xs text-orange-400 font-medium">{settings.scaleFactor}x</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.5"
-                          max="4"
-                          step="0.5"
-                          value={settings.scaleFactor}
-                          onChange={(e) => {
-                            const factor = parseFloat(e.target.value);
-                            setSettings((prev) => ({
-                              ...prev,
-                              scaleFactor: factor,
-                              targetWidth: Math.round(image.originalWidth * factor),
-                              targetHeight: Math.round(image.originalHeight * factor),
-                            }));
-                          }}
-                          className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                        />
-                        <div className="flex justify-between text-[10px] text-gray-500">
-                          <span>0.5x</span>
-                          <span>4x</span>
+              {image && (
+                <AnimatePresence>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex-1 flex flex-col overflow-hidden"
+                  >
+                    {/* Scrollable Settings Area */}
+                    <div className="flex-1 overflow-y-auto pr-1 space-y-3">
+                      {/* Original Image Info */}
+                      <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                        <h3 className="text-xs font-medium text-orange-400 mb-2">Imagen Original</h3>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-gray-500 block">Dimensiones</span>
+                            <span className="text-white">{image.originalWidth} × {image.originalHeight}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 block">Tamaño</span>
+                            <span className="text-white">{formatFileSize(image.originalSize)}</span>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Target Dimensions */}
-                      <div className="grid grid-cols-2 gap-2">
+                      {/* Scale Settings */}
+                      <div className="space-y-3">
+                        {/* Method Selection */}
                         <div className="space-y-1">
-                          <label className="text-xs text-gray-400">Ancho</label>
-                          <input
-                            type="number"
-                            value={settings.targetWidth || ""}
-                            onChange={(e) => {
-                              const width = parseInt(e.target.value) || 0;
+                          <label className="text-xs text-gray-400">Método</label>
+                          <select
+                            value={settings.method}
+                            onChange={(e) =>
                               setSettings((prev) => ({
                                 ...prev,
-                                targetWidth: width,
-                                targetHeight: prev.maintainAspectRatio
-                                  ? Math.round((width / image.originalWidth) * image.originalHeight)
-                                  : prev.targetHeight,
-                              }));
-                            }}
-                            className="w-full bg-black/50 border border-white/20 rounded-lg px-2 py-1.5 text-white text-xs focus:border-orange-500 focus:outline-none"
-                          />
+                                method: e.target.value as InterpolationMethod,
+                              }))
+                            }
+                            className="w-full bg-black/50 border border-white/20 rounded-lg px-3 py-2 text-white text-xs focus:border-orange-500 focus:outline-none"
+                          >
+                            {INTERPOLATION_METHODS.map((method) => (
+                              <option key={method.value} value={method.value}>
+                                {method.label}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="text-[10px] text-gray-500 leading-tight">
+                            {INTERPOLATION_METHODS.find((m) => m.value === settings.method)?.description}
+                          </p>
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-xs text-gray-400">Alto</label>
-                          <input
-                            type="number"
-                            value={settings.targetHeight || ""}
-                            onChange={(e) => {
-                              const height = parseInt(e.target.value) || 0;
-                              setSettings((prev) => ({
-                                ...prev,
-                                targetHeight: height,
-                                targetWidth: prev.maintainAspectRatio
-                                  ? Math.round((height / image.originalHeight) * image.originalWidth)
-                                  : prev.targetWidth,
-                              }));
-                            }}
-                            className="w-full bg-black/50 border border-white/20 rounded-lg px-2 py-1.5 text-white text-xs focus:border-orange-500 focus:outline-none"
-                          />
-                        </div>
-                      </div>
 
-                      {/* DPI Setting */}
-                      <div className="space-y-1">
-                        <label className="text-xs text-gray-400">DPI</label>
-                        <select
-                          value={settings.targetDpi}
-                          onChange={(e) =>
-                            setSettings((prev) => ({
-                              ...prev,
-                              targetDpi: parseInt(e.target.value),
-                            }))
-                          }
-                          className="w-full bg-black/50 border border-white/20 rounded-lg px-3 py-1.5 text-white text-xs focus:border-orange-500 focus:outline-none"
-                        >
-                          <option value={72}>72 DPI (Web)</option>
-                          <option value={150}>150 DPI</option>
-                          <option value={300}>300 DPI (Print)</option>
-                          <option value={600}>600 DPI (Ultra)</option>
-                        </select>
-                      </div>
-
-                      {/* Sharpen Control for Lanczos-Sharp */}
-                      {settings.method === "lanczos-sharp" && (
+                        {/* Scale Factor */}
                         <div className="space-y-1">
                           <div className="flex justify-between">
-                            <label className="text-xs text-gray-400">Nitidez</label>
-                            <span className="text-xs text-orange-400">{settings.sharpenAmount}x</span>
+                            <label className="text-xs text-gray-400">Escala</label>
+                            <span className="text-xs text-orange-400 font-medium">{settings.scaleFactor}x</span>
                           </div>
                           <input
                             type="range"
                             min="0.5"
-                            max="3"
+                            max="4"
                             step="0.5"
-                            value={settings.sharpenAmount}
+                            value={settings.scaleFactor}
+                            onChange={(e) => {
+                              const factor = parseFloat(e.target.value);
+                              setSettings((prev) => ({
+                                ...prev,
+                                scaleFactor: factor,
+                                targetWidth: Math.round(image.originalWidth * factor),
+                                targetHeight: Math.round(image.originalHeight * factor),
+                              }));
+                            }}
+                            className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                          />
+                          <div className="flex justify-between text-[10px] text-gray-500">
+                            <span>0.5x</span>
+                            <span>4x</span>
+                          </div>
+                        </div>
+
+                        {/* Target Dimensions */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-400">Ancho</label>
+                            <input
+                              type="number"
+                              value={settings.targetWidth || ""}
+                              onChange={(e) => {
+                                const width = parseInt(e.target.value) || 0;
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  targetWidth: width,
+                                  targetHeight: prev.maintainAspectRatio
+                                    ? Math.round((width / image.originalWidth) * image.originalHeight)
+                                    : prev.targetHeight,
+                                }));
+                              }}
+                              className="w-full bg-black/50 border border-white/20 rounded-lg px-2 py-1.5 text-white text-xs focus:border-orange-500 focus:outline-none"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-400">Alto</label>
+                            <input
+                              type="number"
+                              value={settings.targetHeight || ""}
+                              onChange={(e) => {
+                                const height = parseInt(e.target.value) || 0;
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  targetHeight: height,
+                                  targetWidth: prev.maintainAspectRatio
+                                    ? Math.round((height / image.originalHeight) * image.originalWidth)
+                                    : prev.targetWidth,
+                                }));
+                              }}
+                              className="w-full bg-black/50 border border-white/20 rounded-lg px-2 py-1.5 text-white text-xs focus:border-orange-500 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        {/* DPI Setting */}
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-400">DPI</label>
+                          <select
+                            value={settings.targetDpi}
                             onChange={(e) =>
                               setSettings((prev) => ({
                                 ...prev,
-                                sharpenAmount: parseFloat(e.target.value),
+                                targetDpi: parseInt(e.target.value),
                               }))
                             }
-                            className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                          />
+                            className="w-full bg-black/50 border border-white/20 rounded-lg px-3 py-1.5 text-white text-xs focus:border-orange-500 focus:outline-none"
+                          >
+                            <option value={72}>72 DPI (Web)</option>
+                            <option value={150}>150 DPI</option>
+                            <option value={300}>300 DPI (Print)</option>
+                            <option value={600}>600 DPI (Ultra)</option>
+                          </select>
                         </div>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Action Buttons - Fixed at bottom */}
-                  <div className="pt-3 mt-3 border-t border-white/10 space-y-2 flex-shrink-0">
-                    <button
-                      onClick={handleScale}
-                      disabled={isProcessing}
-                      className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 text-sm"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          {progress}%
-                        </>
-                      ) : (
-                        <>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-                            <polyline points="17 6 23 6 23 12" />
-                          </svg>
-                          Escalar
-                        </>
-                      )}
-                    </button>
-
-                    {scaledImageUrl && (
-                      <button
-                        onClick={handleDownload}
-                        className="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 text-sm"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                          <polyline points="7 10 12 15 17 10" />
-                          <line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
-                        Descargar
-                      </button>
-                    )}
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-            )}
-          </div>
-
-          {/* Right Panel - Preview */}
-          <div className="flex-1 p-6 flex items-center justify-center bg-gradient-to-br from-black via-gray-900 to-black">
-            <AnimatePresence mode="wait">
-              {!image ? (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="text-center"
-                >
-                  <div className="w-24 h-24 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-orange-500/20 to-red-600/20 flex items-center justify-center border border-orange-500/30">
-                    <svg
-                      width="36"
-                      height="36"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#f97316"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                      <circle cx="8.5" cy="8.5" r="1.5" />
-                      <polyline points="21 15 16 10 5 21" />
-                    </svg>
-                  </div>
-                  <h2 className="text-lg font-semibold text-white mb-1">Sube una imagen</h2>
-                  <p className="text-gray-400 text-sm max-w-sm">
-                    Selecciona una imagen y elige el método de interpolación
-                  </p>
-                </motion.div>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="w-full h-full flex flex-col"
-                >
-                  {/* Comparison */}
-                  <div className="flex-1 flex gap-4 min-h-0">
-                    {/* Original */}
-                    <div className="flex-1 bg-white/5 rounded-xl border border-white/10 overflow-hidden flex flex-col">
-                      <div className="p-2 bg-white/5 border-b border-white/10 flex items-center justify-between">
-                        <span className="text-xs font-medium text-gray-400">Original</span>
-                        <span className="text-[10px] text-gray-500">
-                          {image.originalWidth} × {image.originalHeight}px
-                        </span>
-                      </div>
-                      <div className="flex-1 p-3 flex items-center justify-center overflow-hidden">
-                        <img
-                          src={image.originalUrl}
-                          alt="Original"
-                          className="max-w-full max-h-full object-contain rounded-lg"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Scaled */}
-                    <div className="flex-1 bg-white/5 rounded-xl border border-white/10 overflow-hidden flex flex-col">
-                      <div className="p-2 bg-white/5 border-b border-white/10 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-orange-400">Escalada</span>
-                          <span className="text-[10px] text-gray-500">
-                            {settings.targetWidth} × {settings.targetHeight}px
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-orange-500/80 font-medium">
-                          {settings.targetDpi} DPI
-                        </span>
-                      </div>
-                      <div className="flex-1 p-3 flex items-center justify-center overflow-hidden">
-                        {scaledImageUrl ? (
-                          <img
-                            src={scaledImageUrl}
-                            alt="Scaled"
-                            className="max-w-full max-h-full object-contain rounded-lg"
-                          />
-                        ) : (
-                          <div className="text-center text-gray-500">
-                            <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <p className="text-sm">Vista previa</p>
+                        {/* Sharpen Control for Lanczos-Sharp */}
+                        {settings.method === "lanczos-sharp" && (
+                          <div className="space-y-1">
+                            <div className="flex justify-between">
+                              <label className="text-xs text-gray-400">Nitidez</label>
+                              <span className="text-xs text-orange-400">{settings.sharpenAmount}x</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0.5"
+                              max="3"
+                              step="0.5"
+                              value={settings.sharpenAmount}
+                              onChange={(e) =>
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  sharpenAmount: parseFloat(e.target.value),
+                                }))
+                              }
+                              className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                            />
                           </div>
                         )}
                       </div>
                     </div>
-                  </div>
-                </motion.div>
+
+                    {/* Action Buttons */}
+                    <div className="pt-3 mt-3 border-t border-white/10 space-y-2 flex-shrink-0">
+                      <button
+                        onClick={handleScale}
+                        disabled={isProcessing}
+                        className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 text-sm"
+                      >
+                        {isProcessing ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            {progress}%
+                          </>
+                        ) : (
+                          <>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                              <polyline points="17 6 23 6 23 12" />
+                            </svg>
+                            Escalar
+                          </>
+                        )}
+                      </button>
+
+                      {scaledImageUrl && (
+                        <button
+                          onClick={handleDownload}
+                          className="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 text-sm"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                          </svg>
+                          Descargar
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
               )}
-            </AnimatePresence>
+            </div>
+
+            {/* Right Panel - Preview */}
+            <div className="flex-1 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex items-center justify-center overflow-hidden">
+              <AnimatePresence mode="wait">
+                {!image ? (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="text-center"
+                  >
+                    <div className="w-24 h-24 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-orange-500/20 to-red-600/20 flex items-center justify-center border border-orange-500/30">
+                      <svg
+                        width="36"
+                        height="36"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#f97316"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <polyline points="21 15 16 10 5 21" />
+                      </svg>
+                    </div>
+                    <h2 className="text-lg font-semibold text-white mb-1">Sube una imagen</h2>
+                    <p className="text-gray-400 text-sm max-w-sm">
+                      Selecciona una imagen y elige el método de interpolación
+                    </p>
+                  </motion.div>
+                ) : scaledImageUrl ? (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="w-full h-full"
+                  >
+                    {/* Slider de comparación - solo después de escalar */}
+                    <BeforeAfterSlider
+                      beforeImage={image.originalUrl}
+                      afterImage={scaledImageUrl}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="w-full h-full flex flex-col"
+                  >
+                    {/* Solo muestra imagen original antes de escalar */}
+                    <div className="flex-1 flex items-center justify-center overflow-hidden">
+                      <img
+                        src={image.originalUrl}
+                        alt="Original"
+                        className="max-w-full max-h-full object-contain rounded-xl"
+                      />
+                    </div>
+                    <div className="mt-3 text-center">
+                      <span className="px-3 py-1.5 bg-white/10 rounded-lg text-xs font-medium text-gray-400">
+                        Original · {image.originalWidth} × {image.originalHeight}px
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </div>

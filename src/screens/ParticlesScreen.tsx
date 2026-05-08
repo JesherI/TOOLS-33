@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { ParticleCanvas } from "../components/particles";
 import { WindowControls } from "../components/window";
-import { 
-  FuturisticCard, 
-  SystemProgressBar, 
-  StatusIndicator, 
+import {
+  FuturisticCard,
+  SystemProgressBar,
+  StatusIndicator,
   FuturisticLoader,
-  SystemErrorState 
+  SystemErrorState
 } from "../components/system";
 
 interface ParticlesScreenProps {
@@ -40,7 +41,12 @@ export function ParticlesScreen({ onNavigate: _onNavigate }: ParticlesScreenProp
   const [currentTime, setCurrentTime] = useState(new Date());
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [appVersion, setAppVersion] = useState<string>("");
   const isFetchingRef = useRef(false);
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion("0.2.4"));
+  }, []);
 
   const fetchSystemInfo = useCallback(async (showLoading = false) => {
     if (isFetchingRef.current) return;
@@ -285,7 +291,7 @@ export function ParticlesScreen({ onNavigate: _onNavigate }: ParticlesScreenProp
                 )}
               </div>
               <div className="text-orange-400/40 flex items-center gap-2">
-                <span>TOOLS-33 v0.1.6</span>
+                <span>TOOLS-33 v{appVersion || "0.2.4"}</span>
                 {lastUpdate && (
                   <span className="text-orange-400/30">| {getTimeSinceLastUpdate()}</span>
                 )}

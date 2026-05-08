@@ -4,3 +4,4 @@ export * from "./ParticlesScreen";
 export * from "./PdfCompressScreen";
 export * from "./MagazineScreen";
 export * from "./ImageScalerScreen";
+export * from "./TextureGeneratorScreen";

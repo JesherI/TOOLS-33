@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CpuIcon } from "../icons";
-import { downloadAndInstall } from "../../utils/updater";
+import { getVersion } from "@tauri-apps/api/app";
 
 interface SidebarProps {
   className?: string;
-  currentScreen?: "home" | "pdf-compress" | "magazine" | "image-scaler";
-  onNavigate?: (screen: "home" | "pdf-compress" | "magazine" | "image-scaler") => void;
+  currentScreen?: "home" | "pdf-compress" | "magazine" | "image-scaler" | "texture-generator";
+  onNavigate?: (screen: "home" | "pdf-compress" | "magazine" | "image-scaler" | "texture-generator") => void;
 }
 
 export function Sidebar({ 
@@ -15,8 +15,13 @@ export function Sidebar({
 }: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeItem, setActiveItem] = useState(currentScreen);
+  const [appVersion, setAppVersion] = useState<string>("");
 
-  const handleNavigation = (screen: "home" | "pdf-compress" | "magazine" | "image-scaler") => {
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion("0.2.4"));
+  }, []);
+
+  const handleNavigation = (screen: "home" | "pdf-compress" | "magazine" | "image-scaler" | "texture-generator") => {
     setActiveItem(screen);
     onNavigate?.(screen);
   };
@@ -183,24 +188,22 @@ export function Sidebar({
               <span className="text-sm font-medium whitespace-nowrap">Image Scaler</span>
             )}
           </button>
-        </div>
 
-        {/* Bottom Section */}
-        <div className="absolute bottom-4 left-2 right-2">
-          {/* Divider */}
-          <div className="mx-2 mb-2 h-px bg-white/10" />
-          
-          {/* Update Check */}
+          {/* Texture Generator */}
           <button
-            onClick={() => downloadAndInstall()}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group text-gray-500 hover:text-gray-300 hover:bg-white/5 ${
-              isExpanded ? "justify-start" : "justify-center"
-            }`}
-            title="Buscar actualizaciones"
+            onClick={() => handleNavigation("texture-generator")}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${
+              activeItem === "texture-generator"
+                ? "text-orange-400"
+                : "text-gray-400 hover:text-gray-200"
+            } ${isExpanded ? "justify-start" : "justify-center"}`}
+            style={{
+              background: activeItem === "texture-generator" ? "rgba(249, 115, 22, 0.15)" : "transparent",
+            }}
           >
             <svg
-              width="18"
-              height="18"
+              width="20"
+              height="20"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -209,15 +212,25 @@ export function Sidebar({
               strokeLinejoin="round"
               className="shrink-0"
             >
-              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-              <path d="M3 3v5h5" />
-              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-              <path d="M16 21h5v-5" />
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <path d="M3 9h18M9 21V9" />
+              <circle cx="12" cy="6" r="1" fill="currentColor" />
+              <circle cx="6" cy="6" r="1" fill="currentColor" />
+              <circle cx="18" cy="6" r="1" fill="currentColor" />
             </svg>
             {isExpanded && (
-              <span className="text-xs font-medium whitespace-nowrap">Buscar actualizaciones</span>
+              <span className="text-sm font-medium whitespace-nowrap">Textures</span>
             )}
           </button>
+        </div>
+
+        {/* Footer - Version */}
+        <div className="absolute bottom-4 left-0 right-0 px-4">
+          <div className={`flex items-center gap-2 text-[10px] text-gray-600 transition-all duration-300 ${
+            isExpanded ? "justify-start" : "justify-center"
+          }`}>
+            <span className="font-medium">v{appVersion || "0.2.4"}</span>
+          </div>
         </div>
       </div>
     </div>

@@ -128,6 +128,7 @@ pub fn run() {
             check_for_updates,
             install_update,
             get_system_info,
+            save_texture_file,
         ])
         .setup(|_app| {
             // Verificar actualizaciones automáticamente al iniciar (en producción)
@@ -216,6 +217,29 @@ async fn auto_check_update(app_handle: &tauri::AppHandle) -> anyhow::Result<()> 
     }
     
     Ok(())
+}
+
+/// Comando para guardar archivos de texturas (PDF/PPTX)
+/// Recibe los bytes del archivo y la ruta completa donde guardar
+#[tauri::command]
+async fn save_texture_file(file_path: String, file_data: Vec<u8>) -> Result<(), String> {
+    use tokio::fs;
+    use std::path::Path;
+    
+    let path = Path::new(&file_path);
+    
+    // Asegurar que el directorio padre exista
+    if let Some(parent) = path.parent() {
+        if let Err(e) = fs::create_dir_all(parent).await {
+            return Err(format!("Error creating directory: {}", e));
+        }
+    }
+    
+    // Escribir el archivo
+    match fs::write(path, file_data).await {
+        Ok(_) => Ok(()),
+        Err(e) => Err(format!("Error writing file: {}", e)),
+    }
 }
 
 #[tauri::command]

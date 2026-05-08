@@ -269,8 +269,6 @@ fn flatten_pdf_to_image(
     output: &PathBuf,
     gs_cmd: &str,
 ) -> Result<CompressionResult, String> {
-    use std::path::Path;
-    
     let original_size = std::fs::metadata(input).map(|m| m.len()).unwrap_or(0);
     let temp_dir = std::env::temp_dir();
     let base_name = input.file_stem().unwrap_or_default().to_string_lossy();

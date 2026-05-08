@@ -1,10 +1,17 @@
+import { useState, useEffect } from "react";
 import { ParticleCanvas } from "../components/particles";
 import { WindowControls } from "../components/window";
 import { InfoCard } from "../components/system";
 import { useSystemInfo } from "../hooks";
+import { getVersion } from "@tauri-apps/api/app";
 
 export function HomeScreen() {
   const { systemInfo, loading } = useSystemInfo();
+  const [appVersion, setAppVersion] = useState<string>("");
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion("0.2.4"));
+  }, []);
 
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden">
@@ -116,7 +123,7 @@ export function HomeScreen() {
           {/* Footer */}
           <div className="mt-8 pt-6 border-t border-white/10 text-center">
             <p className="text-xs text-gray-500">
-              TOOLS 33 v0.1.5 - Powered by Tauri & React
+              TOOLS 33 v{appVersion || "0.2.4"} - Powered by Tauri & React
             </p>
           </div>
         </div>

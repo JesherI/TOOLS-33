@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LoadingScreen, ParticlesScreen, PdfCompressScreen, MagazineScreen, ImageScalerScreen } from "./screens";
+import { LoadingScreen, ParticlesScreen, PdfCompressScreen, MagazineScreen, ImageScalerScreen, TextureGeneratorScreen } from "./screens";
 import { Sidebar } from "./components/sidebar";
+import { WindowControls } from "./components/window";
 
-type Screen = "loading" | "home" | "pdf-compress" | "magazine" | "image-scaler";
+type Screen = "loading" | "home" | "pdf-compress" | "magazine" | "image-scaler" | "texture-generator";
 
 // Variantes de animación para las transiciones de pantalla
 const pageVariants = {
@@ -37,8 +38,13 @@ function App() {
     setCurrentScreen("home");
   };
 
-  const handleNavigate = (screen: "home" | "pdf-compress" | "magazine" | "image-scaler") => {
+  const handleNavigate = (screen: "home" | "pdf-compress" | "magazine" | "image-scaler" | "texture-generator") => {
     setCurrentScreen(screen);
+  };
+
+  const getActiveScreen = (): "home" | "pdf-compress" | "magazine" | "image-scaler" | "texture-generator" => {
+    if (currentScreen === "loading") return "home";
+    return currentScreen;
   };
 
   // Renderizar el contenido de la pantalla actual sin el sidebar
@@ -54,19 +60,20 @@ function App() {
         return <MagazineScreen onNavigate={handleNavigate} />;
       case "image-scaler":
         return <ImageScalerScreen onNavigate={handleNavigate} />;
+      case "texture-generator":
+        return <TextureGeneratorScreen onNavigate={handleNavigate} />;
       default:
         return <LoadingScreen onComplete={handleLoadingComplete} />;
     }
   };
 
-  // Determinar qué pantalla está activa para el sidebar
-  const getActiveScreen = (): "home" | "pdf-compress" | "magazine" | "image-scaler" => {
-    if (currentScreen === "loading") return "home";
-    return currentScreen;
-  };
-
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden">
+      {/* Window Controls - SIEMPRE visibles, nunca animados */}
+      <div className="absolute top-4 right-4 z-[100]" data-tauri-drag-region>
+        <WindowControls />
+      </div>
+
       {/* Sidebar persistente - siempre visible excepto en loading */}
       <AnimatePresence>
         {currentScreen !== "loading" && (
