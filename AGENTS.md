@@ -75,7 +75,8 @@ TOOLS-33/
 │   │   ├── main.rs              # Punto de entrada Rust
 │   │   ├── lib.rs               # Librería principal
 │   │   ├── pdf_compression.rs   # Compresión PDF con Ghostscript
-│   │   └── pdf_compress_pure.rs # Compresión PDF pura Rust
+│   │   ├── pdf_compress_pure.rs # Compresión PDF pura Rust
+│   │   └── pdf_merge.rs         # Merge PDFs en Rust (sin bloquear UI)
 │   ├── Cargo.toml               # Dependencias Rust
 │   ├── tauri.conf.json          # Configuración Tauri (versión aquí)
 │   └── icons/                   # Iconos de la app
@@ -254,20 +255,28 @@ useEffect(() => {
 - Múltiples archivos
 - Guardado nativo (sin diálogo del navegador)
 
-### 3. Magazine / Cuadernillo
+### 3. PDF Merge
+- Unión de múltiples PDFs en uno solo
+- Procesamiento en Rust (no bloquea la UI)
+- Lista simple con nombre del archivo
+- Reordenar archivos con flechas arriba/abajo
+- Eliminar archivos individuales
+- Toast de éxito al guardar
+
+### 4. Magazine / Cuadernillo
 - Carga de imágenes numeradas
 - Distribución automática de páginas blancas
 - Generación de PDF de cuadernillo
 - Vista previa de spreads
 
-### 4. Image Scaler
+### 5. Image Scaler
 - Escalado con algoritmos: Lanczos, Lanczos+Sharp, Bicúbica, Bilineal, Vecino
 - Slider de comparación antes/después (aparece solo después de escalar)
 - Control de DPI
 - Ajuste de nitidez
 - Preview de imagen original antes de escalar
 
-### 5. Texture Generator
+### 6. Texture Generator
 - Generación de texturas repetidas para papel tapiz/fondos
 - Soporta múltiples tamaños de papel (Carta, Oficio, Tabloide, Personalizado)
 - Configuración por imagen: escala, rotación, opacidad, flip alternado
@@ -354,6 +363,11 @@ pnpm build
 
 ## Historial de Cambios Recientes
 
+- **PDF Merge completamente reescrito**: Procesamiento movido a Rust con `lopdf` (no bloquea UI)
+- **PDF Merge UI simplificada**: Lista de archivos sin previsualización, reordenamiento con flechas
+- **Toast notifications agregadas**: PDF Compress, PDF Merge, Image Scaler ahora muestran toast al guardar
+- **Nombres de archivos preservados**: En drag & drop de PDF Merge se conserva el nombre original
+- **Versión 0.4.0**: Actualizada en package.json, tauri.conf.json y fallbacks de UI
 - **Versión dinámica**: La versión se obtiene automáticamente de `tauri.conf.json` en HomeScreen, ParticlesScreen y Sidebar
 - **Sidebar actualizado**: Agregado item "Textures" y versión en la parte inferior
 - **Image Scaler mejorado**: Slider de comparación solo aparece después de escalar, título eliminado

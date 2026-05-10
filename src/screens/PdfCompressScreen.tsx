@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { ParticleCanvas } from "../components/particles";
 import { WindowControls } from "../components/window";
+import { ToastContainer, useToast } from "../components/toast/Toast";
 import {
   FileDropZone,
   FileList,
@@ -18,7 +19,7 @@ import {
 } from "../utils";
 
 interface PdfCompressScreenProps {
-  onNavigate?: (_screen: "home" | "pdf-compress" | "magazine" | "image-scaler") => void;
+  onNavigate?: (_screen: "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler") => void;
 }
 
 interface FileItem {
@@ -41,6 +42,7 @@ export function PdfCompressScreen({ onNavigate: _onNavigate }: PdfCompressScreen
   const [flattenMode, setFlattenMode] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toasts, showToast, removeToast } = useToast();
 
   // Handle files selected
   const handleFiles = useCallback((selectedFiles: FileList | null) => {
@@ -163,6 +165,11 @@ export function PdfCompressScreen({ onNavigate: _onNavigate }: PdfCompressScreen
                   }
                 : f
             )
+          );
+
+          showToast(
+            `${fileItem.name} comprimido (${result.compression_ratio || "0%"} reducción)`,
+            "success"
           );
         } else {
           throw new Error(result.error || "Error en compresión");
@@ -291,6 +298,9 @@ export function PdfCompressScreen({ onNavigate: _onNavigate }: PdfCompressScreen
           )}
         </div>
       </div>
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

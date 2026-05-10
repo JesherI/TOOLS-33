@@ -101,10 +101,15 @@ export function BottomControls({ image, onUpdate, zoom, onZoomChange }: BottomCo
                 onChange={(e) => onUpdate(image.id, { flipAlternate: e.target.checked })}
                 className="peer sr-only"
               />
-              <div className="w-4 h-4 rounded border border-white/30 transition-all duration-200 flex items-center justify-center
-                peer-checked:bg-orange-500 peer-checked:border-orange-500 bg-transparent">
+              <div className={`
+                w-6 h-6 rounded-lg border-2 transition-all duration-200 flex items-center justify-center
+                ${image.config.flipAlternate 
+                  ? "bg-gradient-to-br from-orange-500 to-orange-600 border-orange-500 shadow-lg shadow-orange-500/25" 
+                  : "bg-black/40 border-white/20"
+                }
+              `}>
                 {image.config.flipAlternate && (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 )}

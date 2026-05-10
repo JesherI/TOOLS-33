@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ParticleCanvas } from "../components/particles";
+import { ToastContainer, useToast } from "../components/toast/Toast";
 
 type InterpolationMethod = "lanczos-sharp" | "lanczos" | "bicubic" | "bilinear" | "nearest";
 
@@ -466,7 +467,7 @@ function BeforeAfterSlider({
 }
 
 interface ImageScalerScreenProps {
-  onNavigate?: (screen: "home" | "pdf-compress" | "magazine" | "image-scaler") => void;
+  onNavigate?: (screen: "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler") => void;
 }
 
 export function ImageScalerScreen({ onNavigate: _onNavigate }: ImageScalerScreenProps) {
@@ -476,6 +477,7 @@ export function ImageScalerScreen({ onNavigate: _onNavigate }: ImageScalerScreen
   const [progress, setProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toasts, showToast, removeToast } = useToast();
 
   const [settings, setSettings] = useState<ScaleSettings>({
     method: "lanczos-sharp",
@@ -563,6 +565,7 @@ export function ImageScalerScreen({ onNavigate: _onNavigate }: ImageScalerScreen
   const handleDownload = () => {
     if (scaledImageUrl && image) {
       downloadImage(scaledImageUrl, image.file.name, settings.targetDpi);
+      showToast("Imagen guardada correctamente", "success");
     }
   };
 
@@ -917,6 +920,9 @@ export function ImageScalerScreen({ onNavigate: _onNavigate }: ImageScalerScreen
           </div>
         </div>
       </div>
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

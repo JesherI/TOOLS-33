@@ -12,7 +12,7 @@ import {
 } from "../components/system";
 
 interface ParticlesScreenProps {
-  onNavigate?: (_screen: "home" | "pdf-compress" | "magazine" | "image-scaler") => void;
+  onNavigate?: (_screen: "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler") => void;
 }
 
 interface SystemInfo {
@@ -45,7 +45,7 @@ export function ParticlesScreen({ onNavigate: _onNavigate }: ParticlesScreenProp
   const isFetchingRef = useRef(false);
 
   useEffect(() => {
-    getVersion().then(setAppVersion).catch(() => setAppVersion("0.2.4"));
+    getVersion().then(setAppVersion).catch(() => setAppVersion("0.4.0"));
   }, []);
 
   const fetchSystemInfo = useCallback(async (showLoading = false) => {

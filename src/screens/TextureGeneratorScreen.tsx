@@ -268,7 +268,7 @@ export function TextureGeneratorScreen({ onNavigate: _onNavigate }: TextureGener
         },
       };
 
-      setImages((prev) => [...prev, newImage]);
+      setImages((prev) => [newImage, ...prev]);
       if (!selectedImageId) {
         setSelectedImageId(id);
       }
@@ -440,7 +440,7 @@ export function TextureGeneratorScreen({ onNavigate: _onNavigate }: TextureGener
               <p className="text-gray-500 text-xs">Arrastra aquí</p>
             </div>
 
-            <div className="flex-1 px-3 pb-3 overflow-hidden">
+            <div className="flex-1 px-3 pb-2 overflow-hidden">
               <ImageList
                 images={images}
                 selectedId={selectedImageId}
@@ -453,7 +453,7 @@ export function TextureGeneratorScreen({ onNavigate: _onNavigate }: TextureGener
           {/* Panel central */}
           <div className="flex-1 flex flex-col bg-gray-900/20 overflow-hidden">
             {/* Área de trabajo con scroll mejorado */}
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-auto scrollbar-thin">
               <div className="min-w-full min-h-full flex items-start justify-start p-8">
                 {/* Contenedor con regletas */}
                 <div className="relative inline-block">

@@ -72,12 +72,27 @@ export function EmptyState({ onSelectFolder, hasBackCover, onBackCoverChange }: 
       {/* Back Cover Toggle - Below the drop zone */}
       <div className="flex justify-center">
         <label className="flex items-center gap-3 px-6 py-4 bg-white/5 rounded-xl border border-white/10 cursor-pointer hover:bg-white/[0.07] transition-colors">
-          <input
-            type="checkbox"
-            checked={hasBackCover}
-            onChange={(e) => onBackCoverChange(e.target.checked)}
-            className="w-5 h-5 rounded border-orange-500/50 bg-black/40 text-orange-500 focus:ring-orange-500/50 focus:ring-2 cursor-pointer"
-          />
+          <div className="relative">
+            <input
+              type="checkbox"
+              checked={hasBackCover}
+              onChange={(e) => onBackCoverChange(e.target.checked)}
+              className="peer sr-only"
+            />
+            <div className={`
+              w-6 h-6 rounded-lg border-2 transition-all duration-200 flex items-center justify-center
+              ${hasBackCover 
+                ? "bg-gradient-to-br from-orange-500 to-orange-600 border-orange-500 shadow-lg shadow-orange-500/25" 
+                : "bg-black/40 border-white/20"
+              }
+            `}>
+              {hasBackCover && (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="1.5">
               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />

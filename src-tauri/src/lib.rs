@@ -1,6 +1,8 @@
 mod pdf_compress_pure;
+mod pdf_merge;
 
 use pdf_compress_pure::compress_pdf_rust;
+use pdf_merge::{get_pdf_info, merge_pdfs};
 use tauri_plugin_updater::UpdaterExt;
 use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
 use std::process::Command;
@@ -129,6 +131,8 @@ pub fn run() {
             install_update,
             get_system_info,
             save_texture_file,
+            get_pdf_info,
+            merge_pdfs,
         ])
         .setup(|_app| {
             // Verificar actualizaciones automáticamente al iniciar (en producción)

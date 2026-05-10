@@ -1,11 +1,15 @@
-# TOOLS 33
+# TOOLS 33 v0.4.0
 
 Monitor del sistema y herramientas de productividad para Windows.
 
 ## Características
 
 - Monitor de sistema en tiempo real (CPU, RAM, GPU, Disco)
-- Compresión de archivos PDF
+- Compresión de archivos PDF con Ghostscript
+- Unión de múltiples PDFs (PDF Merge) — procesamiento en Rust
+- Generador de cuadernillos/revistas (Magazine)
+- Escalado de imágenes con algoritmos avanzados (Lanczos, Bicúbica, etc.)
+- Generador de texturas repetidas para papel tapiz
 - Interfaz moderna con partículas animadas
 - Actualizaciones automáticas
 
@@ -59,7 +63,7 @@ El script automáticamente:
 ### Subir a GitHub
 
 1. Ve a https://github.com/JesherI/TOOLS-33/releases/new
-2. Crea un tag: `v0.1.7`
+2. Crea un tag: `v0.4.0`
 3. Adjunta los archivos generados
 4. Publica el release
 

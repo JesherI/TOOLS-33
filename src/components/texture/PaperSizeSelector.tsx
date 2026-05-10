@@ -20,6 +20,17 @@ export function PaperSizeSelector({
   onCustomHeightChange,
 }: PaperSizeSelectorProps) {
   return (
+    <>
+      <style>{`
+        .custom-size-input::-webkit-inner-spin-button,
+        .custom-size-input::-webkit-outer-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        .custom-size-input {
+          -moz-appearance: textfield;
+        }
+      `}</style>
     <div className="flex items-center gap-2">
       {["letter", "legal", "tabloid"].map((key) => (
         <button
@@ -60,7 +71,7 @@ export function PaperSizeSelector({
               step="0.1"
               value={customWidth}
               onChange={(e) => onCustomWidthChange(parseFloat(e.target.value) || 1)}
-              className="w-14 bg-black/50 border border-white/20 rounded px-1.5 py-1 text-white text-xs focus:border-orange-500 focus:outline-none"
+              className="custom-size-input w-14 bg-transparent border-b border-orange-500/50 text-orange-400 text-xs focus:border-orange-500 focus:outline-none text-center"
             />
             <span className="text-gray-500 text-xs">×</span>
             <input
@@ -70,12 +81,13 @@ export function PaperSizeSelector({
               step="0.1"
               value={customHeight}
               onChange={(e) => onCustomHeightChange(parseFloat(e.target.value) || 1)}
-              className="w-14 bg-black/50 border border-white/20 rounded px-1.5 py-1 text-white text-xs focus:border-orange-500 focus:outline-none"
+              className="custom-size-input w-14 bg-transparent border-b border-orange-500/50 text-orange-400 text-xs focus:border-orange-500 focus:outline-none text-center"
             />
             <span className="text-gray-500 text-xs">cm</span>
           </motion.div>
         )}
       </div>
     </div>
+    </>
   );
 }

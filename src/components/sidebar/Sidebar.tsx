@@ -4,8 +4,8 @@ import { getVersion } from "@tauri-apps/api/app";
 
 interface SidebarProps {
   className?: string;
-  currentScreen?: "home" | "pdf-compress" | "magazine" | "image-scaler" | "texture-generator";
-  onNavigate?: (screen: "home" | "pdf-compress" | "magazine" | "image-scaler" | "texture-generator") => void;
+  currentScreen?: "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler" | "texture-generator";
+  onNavigate?: (screen: "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler" | "texture-generator") => void;
 }
 
 export function Sidebar({ 
@@ -18,10 +18,10 @@ export function Sidebar({
   const [appVersion, setAppVersion] = useState<string>("");
 
   useEffect(() => {
-    getVersion().then(setAppVersion).catch(() => setAppVersion("0.2.4"));
+    getVersion().then(setAppVersion).catch(() => setAppVersion("0.4.0"));
   }, []);
 
-  const handleNavigation = (screen: "home" | "pdf-compress" | "magazine" | "image-scaler" | "texture-generator") => {
+  const handleNavigation = (screen: "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler" | "texture-generator") => {
     setActiveItem(screen);
     onNavigate?.(screen);
   };
@@ -123,6 +123,38 @@ export function Sidebar({
             </svg>
             {isExpanded && (
               <span className="text-sm font-medium whitespace-nowrap">PDF Compress</span>
+            )}
+          </button>
+
+          {/* PDF Merge */}
+          <button
+            onClick={() => handleNavigation("pdf-merge")}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${
+              activeItem === "pdf-merge"
+                ? "text-orange-400"
+                : "text-gray-400 hover:text-gray-200"
+            } ${isExpanded ? "justify-start" : "justify-center"}`}
+            style={{
+              background: activeItem === "pdf-merge" ? "rgba(249, 115, 22, 0.15)" : "transparent",
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="shrink-0"
+            >
+              <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2" />
+              <path d="M16 3h5v5M8 21H3v-5" />
+              <path d="M21 3l-9 9M3 21l9-9" />
+            </svg>
+            {isExpanded && (
+              <span className="text-sm font-medium whitespace-nowrap">PDF Union</span>
             )}
           </button>
 

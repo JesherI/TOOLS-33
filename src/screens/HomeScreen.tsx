@@ -10,7 +10,7 @@ export function HomeScreen() {
   const [appVersion, setAppVersion] = useState<string>("");
 
   useEffect(() => {
-    getVersion().then(setAppVersion).catch(() => setAppVersion("0.2.4"));
+    getVersion().then(setAppVersion).catch(() => setAppVersion("0.4.0"));
   }, []);
 
   return (

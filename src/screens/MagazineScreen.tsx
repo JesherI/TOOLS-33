@@ -32,7 +32,7 @@ const scrollbarHideStyles = `
 `;
 
 interface MagazineScreenProps {
-  onNavigate?: (_screen: "home" | "pdf-compress" | "magazine" | "image-scaler") => void;
+  onNavigate?: (_screen: "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler") => void;
 }
 
 const PAGE_SIZE = { name: "Carta", width_pt: 612, height_pt: 792, dpi: 300 };
@@ -468,7 +468,7 @@ export function MagazineScreen({ onNavigate: _onNavigate }: MagazineScreenProps)
       />
 
       <div className="absolute inset-0 pl-20 flex items-center justify-center overflow-auto">
-        <div className="w-full max-w-6xl mx-8 py-8">
+        <div className="w-full max-w-4xl mx-8 py-8">
           
           {phase === "upload" && (
             <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-3xl p-8">
