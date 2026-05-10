@@ -1,6 +1,6 @@
 [package]
 name = "tools-33"
-version = "0.4.0"
+version = "0.4.1"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -33,4 +33,5 @@ flate2 = "1"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 sysinfo = "0.30"
+dxf = "0.6"
 

@@ -1,5 +1,7 @@
 mod pdf_compress_pure;
 mod pdf_merge;
+mod cad_parser;
+mod cad_scanner;
 
 use pdf_compress_pure::compress_pdf_rust;
 use pdf_merge::{get_pdf_info, merge_pdfs};
@@ -133,6 +135,8 @@ pub fn run() {
             save_texture_file,
             get_pdf_info,
             merge_pdfs,
+            open_cad_file,
+            export_cad_pdf,
         ])
         .setup(|_app| {
             // Verificar actualizaciones automáticamente al iniciar (en producción)
@@ -802,4 +806,14 @@ fn format_uptime(seconds: u64) -> String {
     } else {
         format!("{}m", minutes)
     }
+}
+
+#[tauri::command]
+fn open_cad_file(path: String) -> Result<cad_parser::CadRenderData, String> {
+    cad_parser::parse_cad_file(&path)
+}
+
+#[tauri::command]
+fn export_cad_pdf(request: cad_scanner::ExportRequest) -> Result<String, String> {
+    cad_scanner::export_plans_to_pdf(&request)
 }

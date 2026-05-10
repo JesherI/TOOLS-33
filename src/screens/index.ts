@@ -6,3 +6,4 @@ export * from "./MagazineScreen";
 export * from "./ImageScalerScreen";
 export * from "./TextureGeneratorScreen";
 export * from "./PdfMergeScreen";
+export * from "./CadScannerScreen";

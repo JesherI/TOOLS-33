@@ -1,75 +1,45 @@
-# TOOLS 33 v0.4.0
+# TOOLS 33
 
-Monitor del sistema y herramientas de productividad para Windows.
+**Multi-herramienta de productividad para Windows** — construida con Tauri v2, React y Rust.
+
+Compresión de PDFs, unión de PDFs, generación de cuadernillos, escalado de imágenes, generación de texturas y monitor de sistema en tiempo real, todo en una interfaz moderna con partículas animadas.
 
 ## Características
 
-- Monitor de sistema en tiempo real (CPU, RAM, GPU, Disco)
-- Compresión de archivos PDF con Ghostscript
-- Unión de múltiples PDFs (PDF Merge) — procesamiento en Rust
-- Generador de cuadernillos/revistas (Magazine)
-- Escalado de imágenes con algoritmos avanzados (Lanczos, Bicúbica, etc.)
-- Generador de texturas repetidas para papel tapiz
-- Interfaz moderna con partículas animadas
-- Actualizaciones automáticas
+- **Monitor de Sistema** — CPU, RAM, GPU y Disco en tiempo real con información detallada del sistema operativo.
+- **PDF Compress** — Compresión de PDFs con Ghostscript en múltiples niveles (ligera, media, alta) y modo flatten para CAD.
+- **PDF Merge** — Unión rápida de múltiples PDFs con procesamiento en Rust (no bloquea la UI).
+- **Magazine** — Generador de cuadernillos/revistas a partir de imágenes numeradas con distribución automática de páginas.
+- **Image Scaler** — Escalado de imágenes con algoritmos avanzados (Lanczos, Lanczos+Sharp, Bicúbica, Bilineal, Vecino) y slider de comparación.
+- **Texture Generator** — Generación de texturas repetidas para papel tapiz/fondos con exportación a PDF y PowerPoint.
+
+## Tecnologías
+
+| Capa | Tecnología |
+|------|-----------|
+| Frontend | React 19, TypeScript, Tailwind CSS 4, Framer Motion |
+| Backend | Rust, Tauri v2 |
+| Plugins Tauri | dialog, fs, updater, process, opener |
+| Build | Vite 7 |
 
 ## Requisitos
 
-- Node.js 18+
-- Rust 1.70+
 - Windows 10/11
+- [Ghostscript](https://ghostscript.com/) (para compresión de PDFs)
+
+## Instalación
+
+Descarga el instalador desde la [página de releases](https://github.com/JesherI/TOOLS-33/releases) e instálalo como cualquier aplicación de Windows.
+
+Las actualizaciones automáticas se instalarán cuando estén disponibles.
 
 ## Desarrollo
 
 ```bash
-# Instalar dependencias
 pnpm install
-
-# Ejecutar en modo desarrollo
-pnpm tauri dev
-
-# Compilar para producción
-pnpm tauri build
+pnpm tauri dev     # Desarrollo
+pnpm tauri build   # Producción
 ```
-
-## Publicar Release
-
-### Primera vez: Generar claves
-
-```powershell
-.\generate-keys.ps1
-```
-
-Esto creará `src-tauri/private.pem` con tu clave privada.
-
-**IMPORTANTE: Guarda `private.pem` en un lugar seguro. NUNCA lo subas a GitHub.**
-
-### Publicar nueva versión
-
-```powershell
-# Compila, firma y genera latest.json
-.\prepare-release.ps1 -ReleaseNotes "Nuevas caracteristicas"
-
-# O especifica version manualmente
-.\prepare-release.ps1 -Version "0.1.7" -ReleaseNotes "Bug fixes"
-```
-
-El script automáticamente:
-1. Compila la aplicación
-2. Firma los archivos de instalación
-3. Genera `latest.json` con las URLs y firmas
-4. Muestra los pasos para subir a GitHub
-
-### Subir a GitHub
-
-1. Ve a https://github.com/JesherI/TOOLS-33/releases/new
-2. Crea un tag: `v0.4.0`
-3. Adjunta los archivos generados
-4. Publica el release
-
-## Actualizaciones Automáticas
-
-Los usuarios recibirán notificaciones de actualización cuando abras un nuevo release.
 
 ## Licencia
 

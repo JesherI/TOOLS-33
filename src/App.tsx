@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LoadingScreen, ParticlesScreen, PdfCompressScreen, PdfMergeScreen, MagazineScreen, ImageScalerScreen, TextureGeneratorScreen } from "./screens";
+import { LoadingScreen, ParticlesScreen, PdfCompressScreen, PdfMergeScreen, MagazineScreen, ImageScalerScreen, TextureGeneratorScreen, CadScannerScreen } from "./screens";
 import { Sidebar } from "./components/sidebar";
 import { WindowControls } from "./components/window";
 
-type Screen = "loading" | "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler" | "texture-generator";
+type Screen = "loading" | "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler" | "texture-generator" | "cad-scanner";
 
 // Variantes de animación para las transiciones de pantalla
 const pageVariants = {
@@ -38,11 +38,11 @@ function App() {
     setCurrentScreen("home");
   };
 
-  const handleNavigate = (screen: "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler" | "texture-generator") => {
+  const handleNavigate = (screen: "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler" | "texture-generator" | "cad-scanner") => {
     setCurrentScreen(screen);
   };
 
-  const getActiveScreen = (): "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler" | "texture-generator" => {
+  const getActiveScreen = (): "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler" | "texture-generator" | "cad-scanner" => {
     if (currentScreen === "loading") return "home";
     return currentScreen;
   };
@@ -64,6 +64,8 @@ function App() {
         return <ImageScalerScreen onNavigate={handleNavigate} />;
       case "texture-generator":
         return <TextureGeneratorScreen onNavigate={handleNavigate} />;
+      case "cad-scanner":
+        return <CadScannerScreen onNavigate={handleNavigate} />;
       default:
         return <LoadingScreen onComplete={handleLoadingComplete} />;
     }

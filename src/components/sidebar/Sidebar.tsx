@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { CpuIcon } from "../icons";
 import { getVersion } from "@tauri-apps/api/app";
 
+type NavScreen = "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler" | "cad-scanner" | "texture-generator";
+
 interface SidebarProps {
   className?: string;
-  currentScreen?: "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler" | "texture-generator";
-  onNavigate?: (screen: "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler" | "texture-generator") => void;
+  currentScreen?: NavScreen;
+  onNavigate?: (screen: NavScreen) => void;
 }
 
 export function Sidebar({ 
@@ -21,7 +23,7 @@ export function Sidebar({
     getVersion().then(setAppVersion).catch(() => setAppVersion("0.4.0"));
   }, []);
 
-  const handleNavigation = (screen: "home" | "pdf-compress" | "pdf-merge" | "magazine" | "image-scaler" | "texture-generator") => {
+  const handleNavigation = (screen: NavScreen) => {
     setActiveItem(screen);
     onNavigate?.(screen);
   };
@@ -218,6 +220,39 @@ export function Sidebar({
             </svg>
             {isExpanded && (
               <span className="text-sm font-medium whitespace-nowrap">Image Scaler</span>
+            )}
+          </button>
+
+          {/* CAD Scanner */}
+          <button
+            onClick={() => handleNavigation("cad-scanner")}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${
+              activeItem === "cad-scanner"
+                ? "text-orange-400"
+                : "text-gray-400 hover:text-gray-200"
+            } ${isExpanded ? "justify-start" : "justify-center"}`}
+            style={{
+              background: activeItem === "cad-scanner" ? "rgba(249, 115, 22, 0.15)" : "transparent",
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="shrink-0"
+            >
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
+              <line x1="12" y1="2" x2="12" y2="22" />
+            </svg>
+            {isExpanded && (
+              <span className="text-sm font-medium whitespace-nowrap">CAD Scanner</span>
             )}
           </button>
 
