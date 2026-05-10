@@ -48,7 +48,6 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../scripts/**/*",
       "bundled/**/*"
     ],
     "windows": {
