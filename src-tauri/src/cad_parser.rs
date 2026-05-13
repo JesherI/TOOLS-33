@@ -78,7 +78,7 @@ impl BoundingBox {
 }
 
 fn dxf_color_to_rgb(color_index: i16) -> [u8; 3] {
-    let idx = if color_index >= 1 && color_index <= 255 { color_index } else { 7 };
+    let idx = if (1..=255).contains(&color_index) { color_index } else { 7 };
     match idx {
         0 => [0, 0, 0],
         1 => [255, 0, 0],
@@ -115,9 +115,59 @@ fn dxf_color_to_rgb(color_index: i16) -> [u8; 3] {
         253 => [96, 96, 96],
         254 => [128, 128, 128],
         255 => [160, 160, 160],
+        n @ 16..=19 => {
+            let f = 1.0 - (n - 16) as f64 * 0.15;
+            [(255.0 * f) as u8, (80.0 * f) as u8, (80.0 * f) as u8]
+        }
+        n @ 22..=29 => {
+            let f = 1.0 - (n - 22) as f64 * 0.08;
+            [(230.0 * f) as u8, (230.0 * f) as u8, (50.0 * f) as u8]
+        }
+        n @ 32..=39 => {
+            let f = 1.0 - (n - 32) as f64 * 0.08;
+            [(50.0 * f) as u8, (230.0 * f) as u8, (50.0 * f) as u8]
+        }
+        n @ 42..=49 => {
+            let f = 1.0 - (n - 42) as f64 * 0.08;
+            [(50.0 * f) as u8, (230.0 * f) as u8, (230.0 * f) as u8]
+        }
+        n @ 52..=59 => {
+            let f = 1.0 - (n - 52) as f64 * 0.08;
+            [(50.0 * f) as u8, (50.0 * f) as u8, (230.0 * f) as u8]
+        }
+        n @ 62..=69 => {
+            let f = 1.0 - (n - 62) as f64 * 0.08;
+            [(230.0 * f) as u8, (50.0 * f) as u8, (230.0 * f) as u8]
+        }
+        n @ 70..=79 => {
+            let v = 200 - (n - 70) * 10;
+            [v.max(0) as u8, v.max(0) as u8, v.max(0) as u8]
+        }
+        n @ 82..=89 => {
+            let v = 160 + (n - 82) * 8;
+            [v.min(255) as u8, v.min(255) as u8, v.min(255) as u8]
+        }
+        n @ 91..=99 => {
+            let v = 200 + (n - 91) * 6;
+            [v.min(255) as u8, v.min(255) as u8, v.min(255) as u8]
+        }
+        n @ 100..=249 => {
+            let group = ((n - 100) / 10) as usize;
+            let sub = (n % 10) as f64;
+            let hues: [[u8; 3]; 15] = [
+                [220, 120, 120], [220, 220, 120], [120, 220, 120],
+                [120, 220, 220], [120, 120, 220], [220, 120, 220],
+                [180, 180, 180], [200, 180, 180], [180, 200, 180],
+                [180, 180, 200], [200, 160, 160], [200, 200, 160],
+                [160, 200, 160], [160, 200, 200], [160, 160, 200],
+            ];
+            let [r, g, b] = if group < 15 { hues[group] } else { [128, 128, 128] };
+            let f = 1.0 - sub * 0.05;
+            [(r as f64 * f) as u8, (g as f64 * f) as u8, (b as f64 * f) as u8]
+        }
         _ => {
-            let v = if idx <= 9 { idx * 28 } else { 165 };
-            [v as u8, v as u8, v as u8]
+            let v = 165;
+            [v, v, v]
         }
     }
 }

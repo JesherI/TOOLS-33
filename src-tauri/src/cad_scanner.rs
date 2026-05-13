@@ -52,13 +52,14 @@ pub fn export_plans_to_pdf(request: &ExportRequest) -> Result<String, String> {
         let plan_h = plan.max_y - plan.min_y;
         if plan_w <= 0.0 || plan_h <= 0.0 { continue; }
 
-        let fit_s = (paper_w / plan_w).min(paper_h / plan_h) * 0.85;
-        let content_w_pt = plan_w * fit_s;
-        let content_h_pt = plan_h * fit_s;
-        let ox = (paper_w - content_w_pt) / 2.0;
-        let oy = (paper_h - content_h_pt) / 2.0;
+        // Scale the plan to fit within the paper, preserving aspect ratio
+        let s = (paper_w / plan_w).min(paper_h / plan_h);
+        let cw = plan_w * s;
+        let ch = plan_h * s;
+        let ox = (paper_w - cw) / 2.0;
+        let oy = (paper_h - ch) / 2.0;
 
-        let content = generate_page_content(&parsed, plan, fit_s, ox, oy, paper_w, paper_h);
+        let content = generate_page_content(&parsed, plan, s, ox, oy, paper_w, paper_h);
 
         let mut stream_dict = Dictionary::new();
         stream_dict.set("Length", Object::Integer(content.len() as i64));
@@ -129,7 +130,7 @@ fn generate_page_content(
     s: f64,
     ox: f64,
     oy: f64,
-    page_w: f64,
+    _page_w: f64,
     page_h: f64,
 ) -> Vec<u8> {
     let mut ops = Vec::new();

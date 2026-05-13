@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { tempDir } from "@tauri-apps/api/path";
 import { save, open } from "@tauri-apps/plugin-dialog";
@@ -131,24 +131,105 @@ export function CadScannerScreen({ onNavigate: _onNavigate }: CadScannerScreenPr
   }, []);
 
   const handleAddSelection = useCallback((x1: number, y1: number, x2: number, y2: number) => {
-    setSelections((prev) => [
-      ...prev,
-      { id: `sel-${Date.now()}-${Math.random()}`, x1, y1, x2, y2 },
-    ]);
-  }, []);
+    const rx = Math.min(x1, x2);
+    const ry = Math.min(y1, y2);
+    const rw = Math.abs(x2 - x1);
+    const rh = Math.abs(y2 - y1);
 
-  const handleRemoveSelection = useCallback((id: string) => {
-    setSelections((prev) => prev.filter((s) => s.id !== id));
+    let minX = rx;
+    let minY = ry;
+    let maxX = rx + rw;
+    let maxY = ry + rh;
+    let foundAny = false;
+
+    if (cadData) {
+      for (const entity of cadData.entities) {
+        let ex: number, ey: number;
+        if (entity.entity_type === "Line") {
+          ex = (entity.x1 + entity.x2) / 2;
+          ey = (entity.y1 + entity.y2) / 2;
+        } else if (entity.entity_type === "Circle" || entity.entity_type === "Arc") {
+          ex = entity.cx;
+          ey = entity.cy;
+        } else if (entity.vertices.length > 0) {
+          let sx = 0, sy = 0;
+          for (const v of entity.vertices) { sx += v[0]; sy += v[1]; }
+          ex = sx / entity.vertices.length;
+          ey = sy / entity.vertices.length;
+        } else {
+          ex = entity.x1;
+          ey = entity.y1;
+        }
+        if (ex >= rx && ex <= rx + rw && ey >= ry && ey <= ry + rh) {
+          foundAny = true;
+          if (entity.entity_type === "Circle" || entity.entity_type === "Arc") {
+            minX = Math.min(minX, entity.cx - entity.radius);
+            maxX = Math.max(maxX, entity.cx + entity.radius);
+            minY = Math.min(minY, entity.cy - entity.radius);
+            maxY = Math.max(maxY, entity.cy + entity.radius);
+          } else if (entity.entity_type === "Line") {
+            minX = Math.min(minX, entity.x1, entity.x2);
+            maxX = Math.max(maxX, entity.x1, entity.x2);
+            minY = Math.min(minY, entity.y1, entity.y2);
+            maxY = Math.max(maxY, entity.y1, entity.y2);
+          } else if (entity.vertices.length > 0) {
+            for (const v of entity.vertices) {
+              minX = Math.min(minX, v[0]);
+              maxX = Math.max(maxX, v[0]);
+              minY = Math.min(minY, v[1]);
+              maxY = Math.max(maxY, v[1]);
+            }
+          } else {
+            minX = Math.min(minX, entity.x1);
+            maxX = Math.max(maxX, entity.x1);
+            minY = Math.min(minY, entity.y1);
+            maxY = Math.max(maxY, entity.y1);
+          }
+        }
+      }
+    }
+
+    if (foundAny) {
+      const marginW = Math.max((maxX - minX) * 0.05, 10);
+      const marginH = Math.max((maxY - minY) * 0.05, 10);
+      minX -= marginW;
+      maxX += marginW;
+      minY -= marginH;
+      maxY += marginH;
+    }
+
+    setSelections([{
+      id: "manual-sel",
+      x1: minX,
+      y1: minY,
+      x2: maxX,
+      y2: maxY,
+    }]);
+  }, [cadData]);
+
+  const handleUpdateSelection = useCallback((id: string, nx1: number, ny1: number, nx2: number, ny2: number) => {
+    setSelections([
+      { id, x1: Math.min(nx1, nx2), y1: Math.min(ny1, ny2), x2: Math.max(nx1, nx2), y2: Math.max(ny1, ny2) },
+    ]);
   }, []);
 
   const handleClearSelections = useCallback(() => {
     setSelections([]);
   }, []);
 
+  const derivedScale = useMemo(() => {
+    if (selections.length === 0) return 0;
+    const sel = selections[0];
+    const cadW = Math.max(Math.abs(sel.x2 - sel.x1), 1);
+    const paperMM = paperSize.width_cm * 10;
+    return Math.round(cadW / paperMM);
+  }, [selections, paperSize]);
+
   const handleExport = useCallback(async () => {
     if (!cadData) return;
 
     let selectedPlans;
+    let effectiveScale: number;
     if (mode === "auto") {
       if (selectedPlanIds.size === 0) {
         showToast("Selecciona al menos un plano", "error");
@@ -164,24 +245,27 @@ export function CadScannerScreen({ onNavigate: _onNavigate }: CadScannerScreenPr
           max_x: p.max_x,
           max_y: p.max_y,
         }));
+      effectiveScale = scale;
     } else {
       if (selections.length === 0) {
-        showToast("Selecciona al menos un área en el canvas", "error");
+        showToast("Dibuja un rectángulo en el canvas para definir el área a exportar", "error");
         return;
       }
-      selectedPlans = selections.map((s, i) => ({
-        id: i,
-        label: `Selección ${i + 1}`,
-        min_x: Math.min(s.x1, s.x2),
-        min_y: Math.min(s.y1, s.y2),
-        max_x: Math.max(s.x1, s.x2),
-        max_y: Math.max(s.y1, s.y2),
-      }));
+      const sel = selections[0];
+      selectedPlans = [{
+        id: 0,
+        label: `Plano ${paperSize.name}`,
+        min_x: Math.min(sel.x1, sel.x2),
+        min_y: Math.min(sel.y1, sel.y2),
+        max_x: Math.max(sel.x1, sel.x2),
+        max_y: Math.max(sel.y1, sel.y2),
+      }];
+      effectiveScale = derivedScale || 100;
     }
 
     try {
       const outputPath = await save({
-        defaultPath: `planos_export_${scale}.pdf`,
+        defaultPath: `planos_escala_1-${effectiveScale}.pdf`,
         filters: [{ name: "PDF", extensions: ["pdf"] }],
         title: "Guardar PDF con planos",
       });
@@ -194,7 +278,7 @@ export function CadScannerScreen({ onNavigate: _onNavigate }: CadScannerScreenPr
       const request = {
         input_path: tempPathRef.current || "",
         selected_plans: selectedPlans,
-        scale_denominator: scale,
+        scale_denominator: effectiveScale,
         paper_size: {
           name: paperSize.name,
           width_cm: paperSize.width_cm,
@@ -211,7 +295,7 @@ export function CadScannerScreen({ onNavigate: _onNavigate }: CadScannerScreenPr
       showToast(`Error al exportar: ${e}`, "error");
       setPhase("loaded");
     }
-  }, [cadData, mode, selectedPlanIds, detectedPlans, selections, scale, paperSize, showToast]);
+  }, [cadData, mode, selectedPlanIds, detectedPlans, selections, scale, paperSize, derivedScale, showToast]);
 
   const handleBackToImport = useCallback(() => {
     setPhase("import");
@@ -303,41 +387,52 @@ export function CadScannerScreen({ onNavigate: _onNavigate }: CadScannerScreenPr
                     <span className="ml-2">({cadData?.entity_count} ent.)</span>
                   </div>
 
-                  <ScaleInput scale={scale} onScaleChange={setScale} />
                   <PaperSizeSelector size={paperSize} onSizeChange={setPaperSize} />
 
-                  {mode === "auto" && detectedPlans.length > 0 && (
+                  {mode === "auto" && (
                     <>
-                      <AutoPreviewGrid
-                        plans={detectedPlans}
-                        selectedPlans={selectedPlanIds}
-                        onTogglePlan={handleTogglePlan}
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleSelectAll}
-                          className="flex-1 px-2 py-1 rounded-lg text-[10px] bg-white/5 hover:bg-white/10 
-                            text-gray-400 transition-all"
-                        >
-                          Todo
-                        </button>
-                        <button
-                          onClick={handleDeselectAll}
-                          className="flex-1 px-2 py-1 rounded-lg text-[10px] bg-white/5 hover:bg-white/10 
-                            text-gray-400 transition-all"
-                        >
-                          Ninguno
-                        </button>
-                      </div>
+                      <ScaleInput scale={scale} onScaleChange={setScale} />
+                      {detectedPlans.length > 0 && (
+                        <>
+                          <AutoPreviewGrid
+                            plans={detectedPlans}
+                            selectedPlans={selectedPlanIds}
+                            onTogglePlan={handleTogglePlan}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handleSelectAll}
+                              className="flex-1 px-2 py-1 rounded-lg text-[10px] bg-white/5 hover:bg-white/10 
+                                text-gray-400 transition-all"
+                            >
+                              Todo
+                            </button>
+                            <button
+                              onClick={handleDeselectAll}
+                              className="flex-1 px-2 py-1 rounded-lg text-[10px] bg-white/5 hover:bg-white/10 
+                                text-gray-400 transition-all"
+                            >
+                              Ninguno
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </>
                   )}
 
                   {mode === "manual" && (
                     <ManualControls
                       selections={selections}
-                      onRemoveSelection={handleRemoveSelection}
                       onClearAll={handleClearSelections}
+                      paperSize={paperSize}
+                      derivedScale={derivedScale}
                     />
+                  )}
+
+                  {derivedScale > 0 && selections.length > 0 && (
+                    <div className="text-xs text-gray-400 text-center py-1 bg-white/5 rounded-lg border border-white/5">
+                      Escala derivada: <span className="text-orange-400 font-semibold">1:{derivedScale}</span>
+                    </div>
                   )}
 
                   <ExportButton
@@ -371,6 +466,7 @@ export function CadScannerScreen({ onNavigate: _onNavigate }: CadScannerScreenPr
                   selectedPlanIds={selectedPlanIds}
                   selections={selections}
                   onAddSelection={handleAddSelection}
+                  onUpdateSelection={handleUpdateSelection}
                   isManualMode={mode === "manual"}
                 />
               </div>

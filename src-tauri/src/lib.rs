@@ -3,7 +3,7 @@ mod pdf_merge;
 mod cad_parser;
 mod cad_scanner;
 
-use pdf_compress_pure::compress_pdf_rust;
+use pdf_compress_pure::{compress_pdf_rust, compress_pdf_ultra};
 use pdf_merge::{get_pdf_info, merge_pdfs};
 use tauri_plugin_updater::UpdaterExt;
 use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
@@ -129,6 +129,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             compress_pdf_rust,
+            compress_pdf_ultra,
             check_for_updates,
             install_update,
             get_system_info,

@@ -7,6 +7,7 @@ interface CadCanvasProps {
   selectedPlanIds: Set<number>;
   selections: SelectionRect[];
   onAddSelection: (x1: number, y1: number, x2: number, y2: number) => void;
+  onUpdateSelection: (id: string, x1: number, y1: number, x2: number, y2: number) => void;
   isManualMode: boolean;
 }
 
@@ -55,14 +56,15 @@ function lerp(a: number, b: number, t: number): number {
 }
 
 export function CadCanvas({
-  data, detectedPlans, selectedPlanIds, selections, onAddSelection, isManualMode,
+  data, detectedPlans, selectedPlanIds, selections, onAddSelection, onUpdateSelection, isManualMode,
 }: CadCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<ViewportState>({ offset_x: 0, offset_y: 0, zoom: 1 });
   const targetViewportRef = useRef<ViewportState>({ offset_x: 0, offset_y: 0, zoom: 1 });
   const isPanning = useRef(false);
-  const panStartWorld = useRef({ x: 0, y: 0 });
+  const panStartScreen = useRef({ x: 0, y: 0 });
+  const panStartOffset = useRef({ x: 0, y: 0 });
   const mouseWorld = useRef({ x: 0, y: 0 });
   const dimsRef = useRef({ w: 800, h: 600 });
   const isSelecting = useRef(false);
@@ -70,6 +72,11 @@ export function CadCanvas({
   const isSmoothZooming = useRef(false);
   const animFrameRef = useRef<number>(0);
   const extentsRef = useRef({ min_x: 0, max_x: 1, min_y: 0, max_y: 1 });
+  const isMoving = useRef(false);
+  const moveSelId = useRef<string>("");
+  const moveStartWorld = useRef({ x: 0, y: 0 });
+  const moveStartBounds = useRef({ x1: 0, y1: 0, x2: 0, y2: 0 });
+  const movingRect = useRef<SelectionRect | null>(null);
 
   const getCanvasPoint = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
@@ -152,6 +159,43 @@ export function CadCanvas({
       const viewMaxX = w / 2 / vp.zoom - vp.offset_x + margin;
       const viewMaxY = h / 2 / vp.zoom - vp.offset_y + margin;
 
+      // Grid background
+      const gridBase = 50;
+      const lw = 1 / vp.zoom;
+      ctx.lineWidth = lw;
+      let gridStep = gridBase;
+      while (gridStep * vp.zoom < 20) gridStep *= 2;
+      while (gridStep * vp.zoom > 80) gridStep /= 2;
+      const gsx = Math.floor(viewMinX / gridStep) * gridStep;
+      const gsy = Math.floor(viewMinY / gridStep) * gridStep;
+      ctx.beginPath();
+      for (let x = gsx; x <= viewMaxX; x += gridStep) {
+        ctx.moveTo(x, viewMinY);
+        ctx.lineTo(x, viewMaxY);
+      }
+      for (let y = gsy; y <= viewMaxY; y += gridStep) {
+        ctx.moveTo(viewMinX, y);
+        ctx.lineTo(viewMaxX, y);
+      }
+      ctx.strokeStyle = "rgba(255,255,255,0.04)";
+      ctx.stroke();
+      // Sub-grid
+      const subStep = gridStep * 5;
+      const ssx = Math.floor(viewMinX / subStep) * subStep;
+      const ssy = Math.floor(viewMinY / subStep) * subStep;
+      ctx.lineWidth = lw * 1.5;
+      ctx.beginPath();
+      for (let x = ssx; x <= viewMaxX; x += subStep) {
+        ctx.moveTo(x, viewMinY);
+        ctx.lineTo(x, viewMaxY);
+      }
+      for (let y = ssy; y <= viewMaxY; y += subStep) {
+        ctx.moveTo(viewMinX, y);
+        ctx.lineTo(viewMaxX, y);
+      }
+      ctx.strokeStyle = "rgba(255,255,255,0.07)";
+      ctx.stroke();
+
       for (const entity of data.entities) {
         let visible = false;
         if (entity.entity_type === "Line") {
@@ -227,49 +271,79 @@ export function CadCanvas({
         }
       }
 
+      const minLineW = Math.max(1.5, 1.5 / vp.zoom);
+      const cornerSize = Math.max(6, 8 / vp.zoom);
+
       for (const plan of detectedPlans) {
         const isSelected = selectedPlanIds.has(plan.id);
-        ctx.strokeStyle = isSelected ? "rgba(249, 115, 22, 0.8)" : "rgba(59, 130, 246, 0.4)";
-        ctx.lineWidth = isSelected ? 2.5 / vp.zoom : 1.5 / vp.zoom;
-        ctx.setLineDash(isSelected ? [] : [5 / vp.zoom, 5 / vp.zoom]);
-        ctx.strokeRect(plan.min_x, plan.min_y, plan.max_x - plan.min_x, plan.max_y - plan.min_y);
+        const pw = plan.max_x - plan.min_x;
+        const ph = plan.max_y - plan.min_y;
+        ctx.lineWidth = isSelected ? Math.max(2.5, 2.5 / vp.zoom) : minLineW;
+
+        if (isSelected) {
+          ctx.fillStyle = "rgba(249, 115, 22, 0.08)";
+          ctx.fillRect(plan.min_x, plan.min_y, pw, ph);
+        }
+        ctx.strokeStyle = isSelected ? "rgba(249, 115, 22, 0.9)" : "rgba(59, 130, 246, 0.35)";
+        ctx.setLineDash(isSelected ? [] : [Math.max(4, 5 / vp.zoom), Math.max(3, 5 / vp.zoom)]);
+        ctx.strokeRect(plan.min_x, plan.min_y, pw, ph);
         ctx.setLineDash([]);
 
         if (isSelected) {
-          ctx.fillStyle = "rgba(249, 115, 22, 0.1)";
-          ctx.fillRect(plan.min_x, plan.min_y, plan.max_x - plan.min_x, plan.max_y - plan.min_y);
           ctx.fillStyle = "rgba(249, 115, 22, 0.9)";
-          const fontSize = Math.max(8, 12 / vp.zoom);
-          ctx.font = `${fontSize}px sans-serif`;
-          ctx.fillText(plan.label, plan.min_x + 3 / vp.zoom, plan.min_y + fontSize + 3 / vp.zoom);
+          const fontSize = Math.max(9, 12 / vp.zoom);
+          ctx.font = `bold ${fontSize}px sans-serif`;
+          ctx.fillText(plan.label, plan.min_x + Math.max(4, 4 / vp.zoom), plan.min_y + fontSize + Math.max(3, 3 / vp.zoom));
+          // Corner handles
+          ctx.fillStyle = "rgba(249, 115, 22, 0.7)";
+          const hl = cornerSize / 2;
+          [
+            [plan.min_x, plan.min_y],
+            [plan.max_x, plan.min_y],
+            [plan.min_x, plan.max_y],
+            [plan.max_x, plan.max_y],
+          ].forEach(([cx, cy]) => {
+            ctx.fillRect(cx - hl, cy - hl, cornerSize, cornerSize);
+          });
         }
       }
 
-      for (const sel of selections) {
-        const x = Math.min(sel.x1, sel.x2);
-        const y = Math.min(sel.y1, sel.y2);
-        const sw = Math.abs(sel.x2 - sel.x1);
-        const sh = Math.abs(sel.y2 - sel.y1);
-        ctx.strokeStyle = "rgba(249, 115, 22, 0.9)";
-        ctx.lineWidth = 2 / vp.zoom;
-        ctx.setLineDash([6 / vp.zoom, 4 / vp.zoom]);
-        ctx.strokeRect(x, y, sw, sh);
-        ctx.setLineDash([]);
-        ctx.fillStyle = "rgba(249, 115, 22, 0.08)";
-        ctx.fillRect(x, y, sw, sh);
+      // Use movingRect during drag-move, otherwise use selections prop
+      const activeSel = movingRect.current;
+      if (activeSel) {
+        const x = Math.min(activeSel.x1, activeSel.x2);
+        const y = Math.min(activeSel.y1, activeSel.y2);
+        const sw = Math.abs(activeSel.x2 - activeSel.x1);
+        const sh = Math.abs(activeSel.y2 - activeSel.y1);
+        drawPaperBoundary(ctx, x, y, sw, sh, vp.zoom);
+      } else {
+        for (const sel of selections) {
+          const x = Math.min(sel.x1, sel.x2);
+          const y = Math.min(sel.y1, sel.y2);
+          const sw = Math.abs(sel.x2 - sel.x1);
+          const sh = Math.abs(sel.y2 - sel.y1);
+          drawPaperBoundary(ctx, x, y, sw, sh, vp.zoom);
+        }
       }
 
-      if (isManualMode) {
+      if (isManualMode && !activeSel) {
         const mx = mouseWorld.current.x;
         const my = mouseWorld.current.y;
 
-        ctx.strokeStyle = "rgba(249, 115, 22, 0.6)";
-        ctx.lineWidth = 0.5 / vp.zoom;
-        const cs = 20 / vp.zoom;
+        ctx.save();
+        ctx.strokeStyle = "rgba(249, 115, 22, 0.5)";
+        ctx.lineWidth = Math.max(1, 1 / vp.zoom);
+        const cs = Math.max(10, 20 / vp.zoom);
         ctx.beginPath();
         ctx.moveTo(mx - cs, my); ctx.lineTo(mx + cs, my);
         ctx.moveTo(mx, my - cs); ctx.lineTo(mx, my + cs);
         ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(mx, my, Math.max(3, 4 / vp.zoom), 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(249, 115, 22, 0.8)";
+        ctx.lineWidth = Math.max(1.5, 1.5 / vp.zoom);
+        ctx.stroke();
+        ctx.restore();
 
         if (isSelecting.current) {
           const sp = selectStart.current;
@@ -277,13 +351,15 @@ export function CadCanvas({
           const sy = Math.min(sp.y, my);
           const sw = Math.abs(mx - sp.x);
           const sh = Math.abs(my - sp.y);
+          ctx.save();
+          ctx.fillStyle = "rgba(249, 115, 22, 0.05)";
+          ctx.fillRect(sx, sy, sw, sh);
           ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
-          ctx.lineWidth = 1 / vp.zoom;
-          ctx.setLineDash([5 / vp.zoom, 5 / vp.zoom]);
+          ctx.lineWidth = Math.max(1.5, 1.5 / vp.zoom);
+          ctx.setLineDash([Math.max(4, 5 / vp.zoom), Math.max(3, 4 / vp.zoom)]);
           ctx.strokeRect(sx, sy, sw, sh);
           ctx.setLineDash([]);
-          ctx.fillStyle = "rgba(249, 115, 22, 0.06)";
-          ctx.fillRect(sx, sy, sw, sh);
+          ctx.restore();
         }
       }
     }
@@ -319,27 +395,40 @@ export function CadCanvas({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const sel = selections.length > 0 ? selections[selections.length - 1] : null;
 
     const handleMouseDown = (e: MouseEvent) => {
       const worldPt = getCanvasPoint(e.clientX, e.clientY);
-
-      if (e.button === 1) {
-        isPanning.current = true;
-        panStartWorld.current = worldPt;
-        canvas.style.cursor = isManualMode ? "none" : "grabbing";
-        return;
-      }
+      const vp = viewportRef.current;
 
       if (e.button === 0 && isManualMode) {
+        // Check if clicking inside existing selection → move it
+        if (sel) {
+          const sx = Math.min(sel.x1, sel.x2);
+          const sy = Math.min(sel.y1, sel.y2);
+          const sw = Math.abs(sel.x2 - sel.x1);
+          const sh = Math.abs(sel.y2 - sel.y1);
+          if (worldPt.x >= sx && worldPt.x <= sx + sw && worldPt.y >= sy && worldPt.y <= sy + sh) {
+            isMoving.current = true;
+            moveSelId.current = sel.id;
+            moveStartWorld.current = { x: worldPt.x, y: worldPt.y };
+            moveStartBounds.current = { x1: sel.x1, y1: sel.y1, x2: sel.x2, y2: sel.y2 };
+            movingRect.current = { ...sel };
+            canvas.style.cursor = "move";
+            return;
+          }
+        }
+        // Start new selection (replaces old)
         selectStart.current = worldPt;
         isSelecting.current = true;
         canvas.style.cursor = "none";
         return;
       }
 
-      if (e.button === 0) {
+      if (e.button === 0 || e.button === 1) {
+        panStartScreen.current = { x: e.clientX, y: e.clientY };
+        panStartOffset.current = { x: vp.offset_x, y: vp.offset_y };
         isPanning.current = true;
-        panStartWorld.current = worldPt;
         canvas.style.cursor = "grabbing";
       }
     };
@@ -348,22 +437,43 @@ export function CadCanvas({
       const worldPt = getCanvasPoint(e.clientX, e.clientY);
       mouseWorld.current = worldPt;
 
+      if (isMoving.current) {
+        const dx = worldPt.x - moveStartWorld.current.x;
+        const dy = worldPt.y - moveStartWorld.current.y;
+        const b = moveStartBounds.current;
+        movingRect.current = {
+          id: moveSelId.current,
+          x1: b.x1 + dx,
+          y1: b.y1 + dy,
+          x2: b.x2 + dx,
+          y2: b.y2 + dy,
+        };
+        // Commit immediately so state stays in sync
+        onUpdateSelection(moveSelId.current, movingRect.current.x1, movingRect.current.y1, movingRect.current.x2, movingRect.current.y2);
+        return;
+      }
+
       if (isPanning.current) {
         const vp = viewportRef.current;
         const vpTarget = targetViewportRef.current;
-        const dx = worldPt.x - panStartWorld.current.x;
-        const dy = worldPt.y - panStartWorld.current.y;
-        vp.offset_x += dx;
-        vp.offset_y += dy;
+        const dx = (e.clientX - panStartScreen.current.x) / vp.zoom;
+        const dy = (e.clientY - panStartScreen.current.y) / vp.zoom;
+        vp.offset_x = panStartOffset.current.x + dx;
+        vp.offset_y = panStartOffset.current.y + dy;
         vpTarget.offset_x = vp.offset_x;
         vpTarget.offset_y = vp.offset_y;
-        panStartWorld.current = worldPt;
       }
     };
 
-    const handleMouseUp = (e: MouseEvent) => {
+    const handleMouseUp = (_e: MouseEvent) => {
+      if (isMoving.current) {
+        isMoving.current = false;
+        movingRect.current = null;
+        canvas.style.cursor = "none";
+        return;
+      }
       if (isSelecting.current) {
-        const endPt = getCanvasPoint(e.clientX, e.clientY);
+        const endPt = getCanvasPoint(_e.clientX, _e.clientY);
         const sp = selectStart.current;
         const dx = Math.abs(endPt.x - sp.x);
         const dy = Math.abs(endPt.y - sp.y);
@@ -371,10 +481,10 @@ export function CadCanvas({
           onAddSelection(sp.x, sp.y, endPt.x, endPt.y);
         }
         isSelecting.current = false;
-        canvas.style.cursor = isManualMode ? "none" : "crosshair";
+        canvas.style.cursor = "none";
       }
       isPanning.current = false;
-      if (!isManualMode) canvas.style.cursor = "default";
+      canvas.style.cursor = isManualMode && !sel ? "none" : "default";
     };
 
     const handleWheel = (e: WheelEvent) => {
@@ -433,7 +543,7 @@ export function CadCanvas({
       canvas.removeEventListener("contextmenu", handleContextMenu);
       canvas.removeEventListener("dblclick", handleDblClick);
     };
-  }, [getCanvasPoint, onAddSelection, isManualMode]);
+  }, [getCanvasPoint, onAddSelection, onUpdateSelection, isManualMode, selections]);
 
   return (
     <div ref={containerRef} className="w-full h-full relative overflow-hidden rounded-xl">
@@ -443,8 +553,8 @@ export function CadCanvas({
       />
       <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm border border-white/10 rounded-lg px-2.5 py-1.5 text-[10px] text-gray-400 font-mono select-none pointer-events-none">
         {(isManualMode
-          ? "Click+Arrastra: Seleccionar | Rueda: Zoom | Botón medio: Pan"
-          : "Click+Arrastra: Pan | Rueda: Zoom | Botón medio: Pan") + " | Doble Click: Ajustar"}
+          ? "Click+Arrastra: Área del papel | Click dentro: Mover | Rueda: Zoom"
+          : "Click+Arrastra: Pan | Rueda: Zoom") + " | Doble Click: Ajustar"}
       </div>
       {data && (
         <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm border border-white/10 rounded-lg px-2.5 py-1.5 text-[10px] text-gray-500 font-mono select-none pointer-events-none">
@@ -454,6 +564,27 @@ export function CadCanvas({
       )}
     </div>
   );
+}
+
+function drawPaperBoundary(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, zoom: number) {
+  ctx.save();
+  ctx.fillStyle = "rgba(249, 115, 22, 0.06)";
+  ctx.fillRect(x, y, w, h);
+
+  ctx.strokeStyle = "rgba(249, 115, 22, 0.85)";
+  ctx.lineWidth = Math.max(2, 2 / zoom);
+  ctx.shadowColor = "rgba(249, 115, 22, 0.25)";
+  ctx.shadowBlur = Math.max(4, 6 / zoom);
+  ctx.strokeRect(x, y, w, h);
+  ctx.shadowBlur = 0;
+
+  // Corner handles
+  const cs = Math.max(8, 10 / zoom);
+  const hl = cs / 2;
+  ctx.fillStyle = "rgba(249, 115, 22, 0.7)";
+  [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]
+    .forEach(([cx, cy]) => ctx.fillRect(cx - hl, cy - hl, cs, cs));
+  ctx.restore();
 }
 
 function lineInView(e: CadEntity, minX: number, minY: number, maxX: number, maxY: number): boolean {

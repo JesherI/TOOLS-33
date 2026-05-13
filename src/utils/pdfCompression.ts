@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, Channel } from "@tauri-apps/api/core";
 
 export type CompressionLevel = "light" | "medium" | "high";
 
@@ -10,9 +10,70 @@ export interface CompressionResult {
   error?: string;
 }
 
+export interface CompressFileInput {
+  id: string;
+  name: string;
+  path: string;
+}
+
+export interface ProgressEvent {
+  fileId: string;
+  fileName: string;
+  phase: "reading" | "compressing" | "merging" | "done" | "error";
+  progress: number;
+  currentPage?: number;
+  totalPages?: number;
+}
+
+export interface FileCompressResult {
+  fileId: string;
+  fileName: string;
+  success: boolean;
+  originalSize: number;
+  compressedSize?: number;
+  compressionRatio?: string;
+  error?: string;
+}
+
 /**
- * Comprime un archivo PDF usando Ghostscript
- * Ghostscript se instala automáticamente con TOOLS 33
+ * Comprime uno o varios PDFs con la máxima velocidad posible:
+ * - Archivos pequeños (<5 páginas): GS directo
+ * - Archivos grandes (>4 páginas): split en chunks → compresión paralela (todos los núcleos) → merge
+ * - Múltiples archivos: todos se procesan concurrentemente
+ * - Guarda automáticamente en outputDir (Rust escribe directo, sin datos binarios por IPC)
+ */
+export async function compressPdfUltra(
+  files: CompressFileInput[],
+  level: CompressionLevel,
+  flattenMode: boolean,
+  outputDir: string,
+  onProgress: (event: ProgressEvent) => void
+): Promise<FileCompressResult[]> {
+  const channel = new Channel<ProgressEvent>();
+  channel.onmessage = onProgress;
+
+  try {
+    return await invoke<FileCompressResult[]>("compress_pdf_ultra", {
+      files,
+      level,
+      flattenMode,
+      outputDir,
+      onEvent: channel,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return files.map((f) => ({
+      fileId: f.id,
+      fileName: f.name,
+      success: false,
+      originalSize: 0,
+      error: msg,
+    }));
+  }
+}
+
+/**
+ * Comprime un archivo PDF usando Ghostscript (legacy, secuencial)
  */
 export async function compressPDFWithRust(
   inputPath: string,

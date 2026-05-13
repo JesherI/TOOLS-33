@@ -1,15 +1,15 @@
 {
-  "version": "0.4.1",
+  "version": "0.4.2",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/JesherI/TOOLS-33/releases/download/v0.1.9/tools-33_0.1.9_x64_en-US.msi",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJBQjQyNURCQkNBNTIyNEIKUldSTElxVzgyeVcwdWs2dmRhYk1mWUFLNTJ3NDJHSkJrbTlIUVBxN2ZwbHZjc2o1aXpKRUZBVFoK"
+      "url": "https://github.com/JesherI/TOOLS-33/releases/download/v0.4.2/tools-33_0.4.2_x64_en-US.msi",
+      "signature": ""
     },
     "windows-x86_64-nsis": {
-      "url": "https://github.com/JesherI/TOOLS-33/releases/download/v0.1.9/tools-33_0.1.9_x64-setup.exe",
+      "url": "https://github.com/JesherI/TOOLS-33/releases/download/v0.4.2/tools-33_0.4.2_x64-setup.exe",
       "signature": ""
     }
   },
-  "notes": "✅ Actualización automática disponible. MSI recomendado para instalación completa, EXE para portable.",
-  "pub_date": "2026-04-19T03:09:00Z"
+  "notes": "⚡ Compresión PDF ultra-rápida: paraleliza en todos los núcleos. Split+GS+merge para archivos grandes.",
+  "pub_date": "2026-05-13T00:00:00Z"
 }
